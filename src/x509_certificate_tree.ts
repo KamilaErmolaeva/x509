@@ -18,8 +18,6 @@ type X509ChainNodeStorage = Record<CertificateThumbprint, IX509CertificateNode>;
 
 export class X509CertificateTree implements ICertificateStorage {
   public certificateStorage: ICertificateStorageHandler = new DefaultCertificateStorageHandler();
-  public certificatesTree: IX509CertificateNode | null = null;
-  public chainNodeStorage: X509ChainNodeStorage | null = null;
 
   /**
    * Returns the node of the certificate
@@ -36,10 +34,10 @@ export class X509CertificateTree implements ICertificateStorage {
    * @param crypto Crypto provider. Default is from CryptoProvider
    * @returns certificates tree
    */
-  public async fillNode(certificatesTree: IX509CertificateNode, lastCert: X509Certificate, parentCert: X509Certificate, crypto = cryptoProvider.get()) {
+  public async fillNode(certificatesTree: IX509CertificateNode, lastCert: X509Certificate, parentCert: X509Certificate, chainNodeStorage: X509ChainNodeStorage, crypto = cryptoProvider.get()) {
     const thumbprint2 = Convert.ToHex(await parentCert.getThumbprint(crypto));
     if (certificatesTree.certificate.equal(lastCert)) {
-      if (this.chainNodeStorage && !(thumbprint2 in this.chainNodeStorage)) {
+      if (chainNodeStorage && !(thumbprint2 in chainNodeStorage)) {
         certificatesTree.nodes.push(this.createNode(parentCert));
       } else {
         if (!certificatesTree.nodes.some(item => { item.certificate.equal(parentCert); })) {
@@ -48,7 +46,7 @@ export class X509CertificateTree implements ICertificateStorage {
       }
     } else {
       certificatesTree.nodes.forEach(item => {
-        this.fillNode(item, lastCert, parentCert);
+        this.fillNode(item, lastCert, parentCert, chainNodeStorage);
       });
     }
   }
@@ -60,39 +58,32 @@ export class X509CertificateTree implements ICertificateStorage {
    * @param crypto Crypto provider. Default is from CryptoProvider
    * @returns certificates tree
    */
-  public async build(cert: X509Certificate, crypto = cryptoProvider.get()): Promise<IX509CertificateNode> {
+  async #build(cert: X509Certificate, chainNodeStorage: X509ChainNodeStorage, certificatesTree: IX509CertificateNode, crypto = cryptoProvider.get()): Promise<IX509CertificateNode> {
     const thumbprint = Convert.ToHex(await cert.getThumbprint(crypto));
-    if (this.chainNodeStorage && !(thumbprint in this.chainNodeStorage) || !this.chainNodeStorage) {
-      this.chainNodeStorage = { [thumbprint]: this.createNode(cert), ...this.chainNodeStorage };
-    }
-
-    if (!this.certificatesTree) {
-      this.certificatesTree = this.createNode(cert);
+    if (chainNodeStorage && !(thumbprint in chainNodeStorage) || !chainNodeStorage) {
+      chainNodeStorage = { [thumbprint]: this.createNode(cert), ...chainNodeStorage };
     }
 
     if (await cert.isSelfSigned(crypto)) {
-      return this.certificatesTree;
+      return certificatesTree;
     }
 
     const lastCerts = await this.certificateStorage.findIssuers(cert, crypto);
 
     if (lastCerts) {
       for (let i = 0; i < lastCerts.length; i++) {
-        this.fillNode(this.certificatesTree, cert, lastCerts[i]);
-        if (!this.chainNodeStorage[thumbprint].nodes.some(item => { lastCerts && item.certificate.equal(lastCerts[i]); })) {
-          this.chainNodeStorage[thumbprint].nodes.push(this.createNode(lastCerts[i]));
+        this.fillNode(certificatesTree, cert, lastCerts[i], chainNodeStorage);
+        if (!chainNodeStorage[thumbprint].nodes.some(item => { lastCerts && item.certificate.equal(lastCerts[i]); })) {
+          chainNodeStorage[thumbprint].nodes.push(this.createNode(lastCerts[i]));
         }
-        await this.build(lastCerts[i]);
+        await this.#build(lastCerts[i], chainNodeStorage, certificatesTree);
       }
     }
 
-    return this.certificatesTree;
+    return certificatesTree;
   }
 
   public async buildTree(cert: X509Certificate): Promise<IX509CertificateNode> {
-    this.certificatesTree = null;
-    this.chainNodeStorage = null;
-
-    return await this.build(cert);
+    return await this.#build(cert, {}, this.createNode(cert));
   }
 }
