@@ -1,5 +1,6 @@
 import { X509Certificate } from "../x509_cert";
-import { ChainRuleValidateResult } from "./chain_rule_validate";
+import { IX509CertificateNode } from "../x509_certificate_tree";
+import { X509Certificates } from "../x509_certs";
 
 export interface ChainValidatorResult {
   status: boolean;
@@ -12,13 +13,26 @@ export interface ChainValidatorItem {
   status: boolean;
 }
 
+export interface ChainRuleValidateParams {
+  node: IX509CertificateNode;
+  cert: X509Certificate;
+  chain: X509Certificates;
+  options: any;
+  checkDate: Date;
+}
+
+export interface ChainRuleValidateResult {
+  status: boolean;
+  details: string;
+}
+
 export interface ChainValidator {
 
   /**
-     * Determines the validity of the chain
-     * @param options Chain validator elements array
-     * @returns Chain Validator Result
-     */
+   * Determines the validity of the chain
+   * @param options Chain validator elements array
+   * @returns Chain Validator Result
+   */
   validate(options: ChainValidatorItem[]): Promise<ChainValidatorResult>;
 }
 

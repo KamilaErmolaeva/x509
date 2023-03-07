@@ -10,8 +10,6 @@ x509.cryptoProvider.set(crypto);
 context("certificate tree", async () => {
   const certsTree = new x509.X509Certificates();
 
-  let certificateChains: Array<x509.X509Certificate>[] = [];
-
   before(async () => {
     const pems = [
       `-----BEGIN CERTIFICATE-----
@@ -108,40 +106,13 @@ CEn5YlJTjpTwKK0=
     pems.forEach((pem) => certsTree.push(new x509.X509Certificate(pem)));
   });
 
-  let copyCertificateChain: Array<x509.X509Certificate> = [];
-
-  function buildChainCertificatesFromTree(tree: IX509CertificateNode, certificateChain: Array<x509.X509Certificate>) {
-    certificateChain.push(tree.certificate);
-
-    if (tree.nodes.length > 1) {
-      copyCertificateChain = [...certificateChain];
-    }
-
-    if (!tree.nodes.length) {
-      certificateChains.push(certificateChain);
-    }
-
-    for (let i = 0; i < tree.nodes.length; i++) {
-      if (tree.nodes.length > 1) {
-        certificateChain = [...copyCertificateChain];
-        if (i === tree.nodes.length - 1) {
-          copyCertificateChain.pop();
-        }
-      }
-      buildChainCertificatesFromTree(tree.nodes[i], certificateChain);
-    }
-
-    return certificateChains;
-  }
-
   it("build chain tree", async () => {
     const chain = new x509.X509CertificateTree();
     chain.certificateStorage.certificates = certsTree;
     const certificateChain: x509.X509Certificate[] = [];
-    certificateChains = [];
+    const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.buildTree(certsTree[5]);
-    const array = buildChainCertificatesFromTree(items, certificateChain);
-    console.log('array', array);
+    const array = certificateChains.buildChainCertificatesFromTree(items, certificateChain);
     assert.strictEqual(array.length, 4);
     array.forEach(item => assert.strictEqual(item.length, 4));
   });
@@ -150,9 +121,9 @@ CEn5YlJTjpTwKK0=
     const chain = new x509.X509CertificateTree();
     chain.certificateStorage.certificates = certsTree;
     const certificateChain: x509.X509Certificate[] = [];
-    certificateChains = [];
+    const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.buildTree(certsTree[0]);
-    const array = buildChainCertificatesFromTree(items, certificateChain);
+    const array = certificateChains.buildChainCertificatesFromTree(items, certificateChain);
     assert.strictEqual(array.length, 1);
     array.forEach(item => assert.strictEqual(item.map(o => o.subject).join(","), "CN=Root CA cert, O=Test"));
   });
@@ -161,9 +132,9 @@ CEn5YlJTjpTwKK0=
     const chain = new x509.X509CertificateTree();
     chain.certificateStorage.certificates = certsTree;
     const certificateChain: x509.X509Certificate[] = [];
-    certificateChains = [];
+    const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.buildTree(certsTree[5]);
-    const array = buildChainCertificatesFromTree(items, certificateChain);
+    const array = certificateChains.buildChainCertificatesFromTree(items, certificateChain);
     array.forEach(item => assert.strictEqual(item.length, 4));
     array.forEach(item => assert.strictEqual(item.map(o => o.subject).join(","), "CN=Intermediate CA cert 4, O=Test,CN=Intermediate CA cert 2, O=Test,CN=Intermediate CA cert, O=Test,CN=Root CA cert, O=Test"));
   });

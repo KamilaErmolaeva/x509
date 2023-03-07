@@ -1,11 +1,11 @@
-import { ChainRuleValidateParams, ChainRuleValidateResult } from "./chain_rule_validate";
+import { ChainRuleValidateParams, ChainValidatorItem } from "../rule_validate/chain_validate";
 
-type ChainRuleType = "critical" | "error" | "notice" | "warning";
+export type ChainRuleType = "critical" | "error" | "notice" | "warning";
 
-interface ChainRule {
+export interface ChainRule {
   id: string;
   type: ChainRuleType;
-  validate(params: ChainRuleValidateParams): Promise<ChainRuleValidateResult>;
+  validate(params: ChainRuleValidateParams): Promise<ChainValidatorItem[]>;
 }
 
 class RulesRegistry {
@@ -24,7 +24,7 @@ class RulesRegistry {
     this.items.push(rule);
   }
 }
-class Rules implements RulesRegistry {
+class Rules {
   validates() {
     RulesRegistry.items.forEach(o => o.validate);
   }
