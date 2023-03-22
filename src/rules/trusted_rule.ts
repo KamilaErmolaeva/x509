@@ -1,12 +1,14 @@
 import { DefaultCertificateStorageHandler } from "../default_certificate_storage_handler";
-import { ChainValidatorItem } from "../rule_validate/chain_validate";
-import { ChainRule, ChainRuleType } from "../rule_validate/rule_registry";
-import { ChainRuleValidateParams } from "../rule_validate/chain_validate";
-import { recordingCertificateVerificationResults } from "./cyclic_rule";
+import { ChainValidatorItem, ChainRuleValidateParams } from "../rule_validate/chain_validate";
+import { ChainRule, ChainRuleType, recordingCertificateVerificationResults } from "../rule_validate/rule_registry";
 
+/**
+ * Trusted Rule
+ * This rule checks that parent certificates are included in the list of trusted certificates
+ */
 export class TrustedRule implements ChainRule {
 
-  public id: string = "";
+  public id: string = "trusted";
   public type: ChainRuleType = "critical";
 
   public async validate(params: ChainRuleValidateParams): Promise<ChainValidatorItem[]> {

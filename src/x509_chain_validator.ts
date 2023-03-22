@@ -9,11 +9,19 @@ export class X509ChainValidator implements ICertificateStorage {
   // verify(certificate: X509Certificate);
 }
 
+/**
+ * Builds all kinds of certificate chains from a tree
+ */
 export class X509ChainBuilderFromTree {
   public certificateChains: Array<X509Certificate>[] = [];
   public copyCertificateChain: X509Certificate[] = [];
 
-  public buildChainCertificatesFromTree(tree: IX509CertificateNode, certificateChain: Array<X509Certificate>) {
+  /**
+   * Returns all possible certificate chains from the certificate tree
+   * @param tree certificates tree
+   * @returns certificate chains
+   */
+  public build(tree: IX509CertificateNode, certificateChain: Array<X509Certificate>) {
     certificateChain.push(tree.certificate);
 
     if (tree.nodes.length > 1) {
@@ -31,7 +39,7 @@ export class X509ChainBuilderFromTree {
           this.copyCertificateChain.pop();
         }
       }
-      this.buildChainCertificatesFromTree(tree.nodes[i], certificateChain);
+      this.build(tree.nodes[i], certificateChain);
     }
 
     return this.certificateChains;

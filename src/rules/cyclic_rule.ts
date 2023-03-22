@@ -1,25 +1,15 @@
 import { isEqual } from "pvtsutils";
 import { cryptoProvider } from "../provider";
-import { ChainRuleValidateParams, ChainRuleValidateResult, ChainValidatorItem } from "../rule_validate/chain_validate";
+import { ChainRuleValidateParams, ChainValidatorItem } from "../rule_validate/chain_validate";
 import { ChainRule, ChainRuleType } from "../rule_validate/rule_registry";
-import { X509Certificate } from "../x509_cert";
 
-export function recordingCertificateVerificationResults(chainCert: X509Certificate, result: ChainRuleValidateResult, verifiedCertificates: ChainValidatorItem[]) {
-  const desiredCertificate = verifiedCertificates.find(async (certInfo) => {
-    const thumbprint = await certInfo.certificate.getThumbprint(crypto);
-    const thumbprint2 = await chainCert.getThumbprint(crypto);
-    isEqual(thumbprint, thumbprint2);
-  });
-  if (!!desiredCertificate) {
-    desiredCertificate.results.push(result);
-  } else {
-    verifiedCertificates.push({ certificate: chainCert, results: [result], status: true });
-  }
-}
-
+/**
+ * Cyclic Rule
+ * This rule checks the chain of certificates for cyclicity
+ */
 export class CyclicRule implements ChainRule {
 
-  public id: string = "";
+  public id: string = "cyclic";
   public type: ChainRuleType = "critical";
 
   public async validate(params: ChainRuleValidateParams, crypto = cryptoProvider.get()): Promise<ChainValidatorItem[]> {

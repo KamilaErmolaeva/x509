@@ -112,7 +112,7 @@ CEn5YlJTjpTwKK0=
     const certificateChain: x509.X509Certificate[] = [];
     const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.buildChainCertificatesFromTree(items, certificateChain);
+    const array = certificateChains.build(items, certificateChain);
     assert.strictEqual(array.length, 4);
     array.forEach(item => assert.strictEqual(item.length, 4));
   });
@@ -123,7 +123,7 @@ CEn5YlJTjpTwKK0=
     const certificateChain: x509.X509Certificate[] = [];
     const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.buildTree(certsTree[0]);
-    const array = certificateChains.buildChainCertificatesFromTree(items, certificateChain);
+    const array = certificateChains.build(items, certificateChain);
     assert.strictEqual(array.length, 1);
     array.forEach(item => assert.strictEqual(item.map(o => o.subject).join(","), "CN=Root CA cert, O=Test"));
   });
@@ -134,7 +134,7 @@ CEn5YlJTjpTwKK0=
     const certificateChain: x509.X509Certificate[] = [];
     const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.buildChainCertificatesFromTree(items, certificateChain);
+    const array = certificateChains.build(items, certificateChain);
     array.forEach(item => assert.strictEqual(item.length, 4));
     array.forEach(item => assert.strictEqual(item.map(o => o.subject).join(","), "CN=Intermediate CA cert 4, O=Test,CN=Intermediate CA cert 2, O=Test,CN=Intermediate CA cert, O=Test,CN=Root CA cert, O=Test"));
   });

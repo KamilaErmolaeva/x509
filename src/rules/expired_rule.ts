@@ -1,11 +1,14 @@
 import { ChainValidatorItem } from "../rule_validate/chain_validate";
-import { ChainRule, ChainRuleType } from "../rule_validate/rule_registry";
+import { ChainRule, ChainRuleType, recordingCertificateVerificationResults } from "../rule_validate/rule_registry";
 import { ChainRuleValidateParams } from "../rule_validate/chain_validate";
-import { recordingCertificateVerificationResults } from "./cyclic_rule";
 
+/**
+ * Expired Rule
+ * This rule checks the validity period of certificates in the certificate chain
+ */
 export class ExpiredRule implements ChainRule {
 
-  public id: string = "";
+  public id: string = "expired";
   public type: ChainRuleType = "critical";
 
   public async validate(params: ChainRuleValidateParams): Promise<ChainValidatorItem[]> {
