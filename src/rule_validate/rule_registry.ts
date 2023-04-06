@@ -1,4 +1,5 @@
-import { isEqual } from "pvtsutils";
+import { Convert, isEqual } from "pvtsutils";
+import { cryptoProvider } from "../provider";
 import { ChainRuleValidateParams, ChainRuleValidateResult, ChainValidatorItem } from "../rule_validate/chain_validate";
 import { X509Certificate } from "../x509_cert";
 
@@ -10,21 +11,24 @@ export interface ChainRule {
   validate(params: ChainRuleValidateParams): Promise<ChainValidatorItem[]>;
 }
 
-export function recordingCertificateVerificationResults(chainCert: X509Certificate, result: ChainRuleValidateResult, verifiedCertificates: ChainValidatorItem[]) {
-  const desiredCertificate = verifiedCertificates.find(async (certInfo) => {
-    const thumbprint = await certInfo.certificate.getThumbprint(crypto);
-    const thumbprint2 = await chainCert.getThumbprint(crypto);
-    isEqual(thumbprint, thumbprint2);
-  });
-  if (!!desiredCertificate) {
-    desiredCertificate.results.push(result);
+export async function recordingCertificateVerificationResults(chainCert: X509Certificate, result: ChainRuleValidateResult, verifiedCertificates: ChainValidatorItem[], crypto = cryptoProvider.get()) {
+  const arr = [];
+  for (const certInfo of verifiedCertificates) {
+    arr.push(isEqual(await certInfo.certificate.getThumbprint(crypto), await chainCert.getThumbprint(crypto)));
+  }
+  if (arr.includes(true)) {
+    for (const certInfo of verifiedCertificates) {
+      if (isEqual(await certInfo.certificate.getThumbprint(crypto), await chainCert.getThumbprint(crypto))) {
+        certInfo.results.push(result);
+      }
+    }
   } else {
     verifiedCertificates.push({ certificate: chainCert, results: [result], status: true });
   }
 }
 
-class RulesRegistry {
-  public static items: ChainRule[];
+export class RulesRegistry {
+  public static items: ChainRule[] = [];
 
   /**
    * Registers certificate chain validation rules
@@ -40,7 +44,12 @@ class RulesRegistry {
   }
 }
 export class Rules {
-  validates() {
-    RulesRegistry.items.forEach(o => o.validate);
+  public static async validates(params: ChainRuleValidateParams): Promise<ChainValidatorItem[][]> {
+    let result: ChainValidatorItem[][] = [];
+    for (const item of RulesRegistry.items) {
+      result.push(await item.validate(params));
+    }
+
+    return result;
   }
 }
