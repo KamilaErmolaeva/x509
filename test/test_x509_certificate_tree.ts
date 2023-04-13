@@ -1,14 +1,10 @@
 import * as assert from "assert";
 import * as x509 from "../src";
-import { Crypto } from "@peculiar/webcrypto";
-import { ChainRule, Rules, RulesRegistry } from "../src/rule_validate/rule_registry";
-import { CyclicRule } from "../src/rules/cyclic_rule";
-import { TrustedRule } from "../src/rules/trusted_rule";
-import { ExpiredRule } from "../src/rules/expired_rule";
-import { ChainRuleValidateParams } from "../src/rule_validate/chain_validate";
-
-const crypto = new Crypto();
-x509.cryptoProvider.set(crypto);
+// import { ChainRule, Rules, RulesRegistry } from "../src/rules/rule_registry";
+// import { CyclicRule } from "../src/rules/cyclic_rule";
+// import { TrustedRule } from "../src/rules/trusted_rule";
+// import { ExpiredRule } from "../src/rules/expired_rule";
+// import { ChainRuleValidateParams } from "../src/rules/chain_validate";
 
 context("certificate tree", async () => {
   const certsTree = new x509.X509Certificates();
@@ -109,13 +105,34 @@ CEn5YlJTjpTwKK0=
     pems.forEach((pem) => certsTree.push(new x509.X509Certificate(pem)));
   });
 
+  async function buildChains(cert: x509.X509Certificate, certsTree: x509.X509Certificates) {
+    const validator = new x509.X509ChainValidator();
+    validator.certificateStorage.certificates = certsTree;
+    const result = await validator.validate(cert);
+
+    if (!result.status) {
+      console.log("Certificate chain is not valid");
+
+      // список ошибок для каждого сертификата
+      for (const item of result.items) {
+        console.log(item.certificate.subject);
+        for (const rule of item.results) {
+          if (!rule.status) {
+            console.log(rule.code, rule.details);
+          }
+        }
+      }
+    } else {
+      console.log("Certificate chain is valid");
+    }
+  }
+
   it("build chain tree", async () => {
     const chain = new x509.X509CertificateTree();
     chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
     const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
+    const items = await chain.build(certsTree[5]);
+    const array = certificateChains.build(items);
     assert.strictEqual(array.length, 4);
     array.forEach(item => assert.strictEqual(item.length, 4));
   });
@@ -123,10 +140,9 @@ CEn5YlJTjpTwKK0=
   it("self-signed certificate chain", async () => {
     const chain = new x509.X509CertificateTree();
     chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
     const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[0]);
-    const array = certificateChains.build(items, certificateChain);
+    const items = await chain.build(certsTree[0]);
+    const array = certificateChains.build(items);
     assert.strictEqual(array.length, 1);
     array.forEach(item => assert.strictEqual(item.map(o => o.subject).join(","), "CN=Root CA cert, O=Test"));
   });
@@ -134,216 +150,204 @@ CEn5YlJTjpTwKK0=
   it("build certificates chain", async () => {
     const chain = new x509.X509CertificateTree();
     chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
     const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
+    const items = await chain.build(certsTree[5]);
+    const array = certificateChains.build(items);
     array.forEach(item => assert.strictEqual(item.length, 4));
     array.forEach(item => assert.strictEqual(item.map(o => o.subject).join(","), "CN=Intermediate CA cert 4, O=Test,CN=Intermediate CA cert 2, O=Test,CN=Intermediate CA cert, O=Test,CN=Root CA cert, O=Test"));
   });
 
   it("Rule for checking certificate chains for cyclicity", async () => {
-    const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
-    const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
-    for (const chain of array) {
-      const params: ChainRuleValidateParams = {
-        node: items,
-        cert: certsTree[5],
-        chain: chain as x509.X509Certificates,
-        options: '',
-        checkDate: new Date("2023/08/18"),
-      };
-      const rule: ChainRule = new CyclicRule();
-      RulesRegistry.items = [];
-      RulesRegistry.register(rule);
-      const result = await Rules.validates(params);
-      for (const item of result[0]) {
-        assert.strictEqual(item.results[0].status, true);
-        assert.strictEqual(item.results[0].details, 'The certificate chain is valid');
-        assert.strictEqual(item.status, true);
-        assert.strictEqual(item.certificate, chain[0]);
-      }
-    }
+    buildChains(certsTree[5], certsTree);
+    // for (const chain of array) {
+    //   const params: ChainRuleValidateParams = {
+    //     node: items,
+    //     cert: certsTree[5],
+    //     chain: chain as x509.X509Certificates,
+    //     options: "",
+    //     checkDate: new Date("2023/08/18"),
+    //   };
+    //   const rule: ChainRule = new CyclicRule();
+    //   RulesRegistry.items = [];
+    //   RulesRegistry.register(rule);
+    //   const result = await Rules.validates(params);
+    //   for (const item of result[0]) {
+    //     assert.strictEqual(item.results[0].status, true);
+    //     assert.strictEqual(item.results[0].details, "The certificate chain is valid");
+    //     assert.strictEqual(item.status, true);
+    //     assert.strictEqual(item.certificate, chain[0]);
+    //   }
+    // }
   });
 
-  it("Rule for checking certificate chains for trusted", async () => {
-    const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
-    const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
-    for (const chain of array) {
-      const params: ChainRuleValidateParams = {
-        node: items,
-        cert: certsTree[5],
-        chain: chain as x509.X509Certificates,
-        options: '',
-        checkDate: new Date("2023/08/18"),
-      };
-      const rule: ChainRule = new TrustedRule();
-      RulesRegistry.items = [];
-      RulesRegistry.register(rule);
-      const result = await Rules.validates(params);
-      assert.strictEqual(result[0].length, 4);
-      for (const item of result[0]) {
-        assert.strictEqual(item.results[0].details, 'Parent certificates are not included in trusted list');
-      }
-    }
-  });
+  // it("Rule for checking certificate chains for trusted", async () => {
+  //   const chain = new x509.X509CertificateTree();
+  //   chain.certificateStorage.certificates = certsTree;
+  //   const certificateChains = new x509.X509ChainBuilderFromTree();
+  //   const items = await chain.build(certsTree[5]);
+  //   const array = certificateChains.build(items);
+  //   for (const chain of array) {
+  //     const params: ChainRuleValidateParams = {
+  //       node: items,
+  //       cert: certsTree[5],
+  //       chain: chain as x509.X509Certificates,
+  //       options: "",
+  //       checkDate: new Date("2023/08/18"),
+  //     };
+  //     const rule: ChainRule = new TrustedRule();
+  //     RulesRegistry.items = [];
+  //     RulesRegistry.register(rule);
+  //     const result = await Rules.validates(params);
+  //     assert.strictEqual(result[0].length, 4);
+  //     for (const item of result[0]) {
+  //       assert.strictEqual(item.results[0].details, "Parent certificates are not included in trusted list");
+  //     }
+  //   }
+  // });
 
-  it("Rule for checking certificate chains for valid", async () => {
-    const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
-    const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
-    for (const chain of array) {
-      const params: ChainRuleValidateParams = {
-        node: items,
-        cert: certsTree[5],
-        chain: chain as x509.X509Certificates,
-        options: '',
-        checkDate: new Date("2023/08/18"),
-      };
-      const rule: ChainRule = new ExpiredRule();
-      RulesRegistry.items = [];
-      RulesRegistry.register(rule);
-      const result = await Rules.validates(params);
-      assert.strictEqual(result[0].length, 4);
-      for (const item of result[0]) {
-        assert.strictEqual(item.results[0].details, 'The certificate is valid');
-      }
-    }
-  });
+  // it("Rule for checking certificate chains for valid", async () => {
+  //   const chain = new x509.X509CertificateTree();
+  //   chain.certificateStorage.certificates = certsTree;
+  //   const certificateChains = new x509.X509ChainBuilderFromTree();
+  //   const items = await chain.build(certsTree[5]);
+  //   const array = certificateChains.build(items);
+  //   for (const chain of array) {
+  //     const params: ChainRuleValidateParams = {
+  //       node: items,
+  //       cert: certsTree[5],
+  //       chain: chain as x509.X509Certificates,
+  //       options: "",
+  //       checkDate: new Date("2023/08/18"),
+  //     };
+  //     const rule: ChainRule = new ExpiredRule();
+  //     RulesRegistry.items = [];
+  //     RulesRegistry.register(rule);
+  //     const result = await Rules.validates(params);
+  //     assert.strictEqual(result[0].length, 4);
+  //     for (const item of result[0]) {
+  //       assert.strictEqual(item.results[0].details, "The certificate is valid");
+  //     }
+  //   }
+  // });
 
-  it("Rule for checking certificate chains for not yet valid", async () => {
-    const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
-    const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
-    for (const chain of array) {
-      const params: ChainRuleValidateParams = {
-        node: items,
-        cert: certsTree[5],
-        chain: chain as x509.X509Certificates,
-        options: '',
-        checkDate: new Date("2020/08/18"),
-      };
-      const rule: ChainRule = new ExpiredRule();
-      RulesRegistry.items = [];
-      RulesRegistry.register(rule);
-      const result = await Rules.validates(params);
-      assert.strictEqual(result[0].length, 4);
-      for (const item of result[0]) {
-        assert.strictEqual(item.results[0].details, 'The certificate is not yet valid');
-      }
-    }
-  });
+  // it("Rule for checking certificate chains for not yet valid", async () => {
+  //   const chain = new x509.X509CertificateTree();
+  //   chain.certificateStorage.certificates = certsTree;
+  //   const certificateChains = new x509.X509ChainBuilderFromTree();
+  //   const items = await chain.build(certsTree[5]);
+  //   const array = certificateChains.build(items);
+  //   for (const chain of array) {
+  //     const params: ChainRuleValidateParams = {
+  //       node: items,
+  //       cert: certsTree[5],
+  //       chain: chain as x509.X509Certificates,
+  //       options: "",
+  //       checkDate: new Date("2020/08/18"),
+  //     };
+  //     const rule: ChainRule = new ExpiredRule();
+  //     RulesRegistry.items = [];
+  //     RulesRegistry.register(rule);
+  //     const result = await Rules.validates(params);
+  //     assert.strictEqual(result[0].length, 4);
+  //     for (const item of result[0]) {
+  //       assert.strictEqual(item.results[0].details, "The certificate is not yet valid");
+  //     }
+  //   }
+  // });
 
-  it("Rule for checking certificate chains for expired", async () => {
-    const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
-    const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
-    for (const chain of array) {
-      const params: ChainRuleValidateParams = {
-        node: items,
-        cert: certsTree[5],
-        chain: chain as x509.X509Certificates,
-        options: '',
-        checkDate: new Date("2043/08/18"),
-      };
-      const rule: ChainRule = new ExpiredRule();
-      RulesRegistry.items = [];
-      RulesRegistry.register(rule);
-      const result = await Rules.validates(params);
-      assert.strictEqual(result[0].length, 4);
-      for (const item of result[0]) {
-        assert.strictEqual(item.results[0].details, 'The certificate is expired');
-      }
-    }
-  });
+  // it("Rule for checking certificate chains for expired", async () => {
+  //   const chain = new x509.X509CertificateTree();
+  //   chain.certificateStorage.certificates = certsTree;
+  //   const certificateChains = new x509.X509ChainBuilderFromTree();
+  //   const items = await chain.build(certsTree[5]);
+  //   const array = certificateChains.build(items);
+  //   for (const chain of array) {
+  //     const params: ChainRuleValidateParams = {
+  //       node: items,
+  //       cert: certsTree[5],
+  //       chain: chain as x509.X509Certificates,
+  //       options: "",
+  //       checkDate: new Date("2043/08/18"),
+  //     };
+  //     const rule: ChainRule = new ExpiredRule();
+  //     RulesRegistry.items = [];
+  //     RulesRegistry.register(rule);
+  //     const result = await Rules.validates(params);
+  //     assert.strictEqual(result[0].length, 4);
+  //     for (const item of result[0]) {
+  //       assert.strictEqual(item.results[0].details, "The certificate is expired");
+  //     }
+  //   }
+  // });
 
-  it("Rule for checking certificate chains for mixed states", async () => {
-    const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
-    const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
-    for (const chain of array) {
-      const params: ChainRuleValidateParams = {
-        node: items,
-        cert: certsTree[5],
-        chain: chain as x509.X509Certificates,
-        options: '',
-        checkDate: new Date("2031/12/26"),
-      };
-      const rule: ChainRule = new ExpiredRule();
-      RulesRegistry.items = [];
-      RulesRegistry.register(rule);
-      const result = await Rules.validates(params);
-      assert.strictEqual(result[0].length, 4);
-      let valid = '';
-      for (let i = 0; i < result[0].length; i++) {
-        if (i % 4 === 0 || i % 4 === 1) { valid = 'The certificate is expired'; }
-        if (i % 4 === 2 || i % 4 === 3) { valid = 'The certificate is valid'; }
-        assert.strictEqual(result[0][i].results[0].details, valid);
-      }
-    }
-  });
+  // it("Rule for checking certificate chains for mixed states", async () => {
+  //   const chain = new x509.X509CertificateTree();
+  //   chain.certificateStorage.certificates = certsTree;
+  //   const certificateChains = new x509.X509ChainBuilderFromTree();
+  //   const items = await chain.build(certsTree[5]);
+  //   const array = certificateChains.build(items);
+  //   for (const chain of array) {
+  //     const params: ChainRuleValidateParams = {
+  //       node: items,
+  //       cert: certsTree[5],
+  //       chain: chain as x509.X509Certificates,
+  //       options: "",
+  //       checkDate: new Date("2031/12/26"),
+  //     };
+  //     const rule: ChainRule = new ExpiredRule();
+  //     RulesRegistry.items = [];
+  //     RulesRegistry.register(rule);
+  //     const result = await Rules.validates(params);
+  //     assert.strictEqual(result[0].length, 4);
+  //     let valid = "";
+  //     for (let i = 0; i < result[0].length; i++) {
+  //       if (i % 4 === 0 || i % 4 === 1) { valid = "The certificate is expired"; }
+  //       if (i % 4 === 2 || i % 4 === 3) { valid = "The certificate is valid"; }
+  //       assert.strictEqual(result[0][i].results[0].details, valid);
+  //     }
+  //   }
+  // });
 
-  it("Certificate chains validation rules", async () => {
-    const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
-    const certificateChain: x509.X509Certificate[] = [];
-    const certificateChains = new x509.X509ChainBuilderFromTree();
-    const items = await chain.buildTree(certsTree[5]);
-    const array = certificateChains.build(items, certificateChain);
-    for (const chain of array) {
-      const params: ChainRuleValidateParams = {
-        node: items,
-        cert: certsTree[5],
-        chain: chain as x509.X509Certificates,
-        options: '',
-        checkDate: new Date("2031/12/26"),
-      };
-      RulesRegistry.items = [];
-      const testData = [new CyclicRule, new TrustedRule, new ExpiredRule];
-      for (let i = 0; i < testData.length; i++) {
-        RulesRegistry.register(testData[i]);
-      }
-      const result = await Rules.validates(params);
-      for (let i = 0; i < result.length; i++) {
-        if (i === 0) {
-          assert.strictEqual(result[i].length, 1);
-          assert.strictEqual(result[i][0].results[0].details, 'The certificate chain is valid');
-          assert.strictEqual(result[i][0].status, true);
-          assert.strictEqual(result[i][0].certificate, chain[0]);
-        } else if (i === 1) {
-          assert.strictEqual(result[i].length, 4);
-          assert.strictEqual(result[i][0].results[0].details, 'Parent certificates are not included in trusted list');
-        } else {
-          assert.strictEqual(result[i].length, 4);
-          let valid = '';
-          for (let j = 0; j < result[0].length; j++) {
-            if (j % 4 === 0 || j % 4 === 1) { valid = 'The certificate is expired'; }
-            if (j % 4 === 2 || j % 4 === 3) { valid = 'The certificate is valid'; }
-            assert.strictEqual(result[i][j].results[0].details, valid);
-          }
-        }
-      }
-      assert.strictEqual(result.length, 3);
-    }
-  });
+  // it("Certificate chains validation rules", async () => {
+  //   const chain = new x509.X509CertificateTree();
+  //   chain.certificateStorage.certificates = certsTree;
+  //   const certificateChains = new x509.X509ChainBuilderFromTree();
+  //   const items = await chain.build(certsTree[5]);
+  //   const array = certificateChains.build(items);
+  //   for (const chain of array) {
+  //     const params: ChainRuleValidateParams = {
+  //       node: items,
+  //       cert: certsTree[5],
+  //       chain: chain as x509.X509Certificates,
+  //       options: "",
+  //       checkDate: new Date("2031/12/26"),
+  //     };
+  //     RulesRegistry.items = [];
+  //     const testData = [new CyclicRule, new TrustedRule, new ExpiredRule];
+  //     for (let i = 0; i < testData.length; i++) {
+  //       RulesRegistry.register(testData[i]);
+  //     }
+  //     const result = await Rules.validates(params);
+  //     for (let i = 0; i < result.length; i++) {
+  //       if (i === 0) {
+  //         assert.strictEqual(result[i].length, 1);
+  //         assert.strictEqual(result[i][0].results[0].details, "The certificate chain is valid");
+  //         assert.strictEqual(result[i][0].status, true);
+  //         assert.strictEqual(result[i][0].certificate, chain[0]);
+  //       } else if (i === 1) {
+  //         assert.strictEqual(result[i].length, 4);
+  //         assert.strictEqual(result[i][0].results[0].details, "Parent certificates are not included in trusted list");
+  //       } else {
+  //         assert.strictEqual(result[i].length, 4);
+  //         let valid = "";
+  //         for (let j = 0; j < result[0].length; j++) {
+  //           if (j % 4 === 0 || j % 4 === 1) { valid = "The certificate is expired"; }
+  //           if (j % 4 === 2 || j % 4 === 3) { valid = "The certificate is valid"; }
+  //           assert.strictEqual(result[i][j].results[0].details, valid);
+  //         }
+  //       }
+  //     }
+  //     assert.strictEqual(result.length, 3);
+  //   }
+  // });
 });

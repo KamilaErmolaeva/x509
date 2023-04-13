@@ -1,7 +1,7 @@
-import { Convert, isEqual } from "pvtsutils";
+import { isEqual } from "pvtsutils";
 import { cryptoProvider } from "../provider";
-import { ChainRuleValidateParams, ChainRuleValidateResult, ChainValidatorItem } from "../rule_validate/chain_validate";
 import { X509Certificate } from "../x509_cert";
+import { ChainRuleValidateParams, ChainRuleValidateResult, ChainValidatorItem } from "../x509_chain_validator";
 
 export type ChainRuleType = "critical" | "error" | "notice" | "warning";
 
@@ -27,27 +27,30 @@ export async function recordingCertificateVerificationResults(chainCert: X509Cer
   }
 }
 
-export class RulesRegistry {
-  public static items: ChainRule[] = [];
+export class RuleRegistry {
+  items: ChainRule[] = [];
 
   /**
-   * Registers certificate chain validation rules
-   * @param rule Rule of type ChainRule
-   *
-   * @example
-   * ```js
-   * RulesRegistry.register(cyclic);
-   * ```
+   * Добавление правила валидации
+   * @param rule правило валидации
    */
-  public static register(rule: ChainRule) {
+  add(rule: ChainRule): void {
     this.items.push(rule);
   }
+
+  // get<T extends ChainRule>(type: new () => T): T;
 }
+
 export class Rules {
-  public static async validates(params: ChainRuleValidateParams): Promise<ChainValidatorItem[][]> {
-    let result: ChainValidatorItem[][] = [];
-    for (const item of RulesRegistry.items) {
-      result.push(await item.validate(params));
+  public registry: RuleRegistry = new RuleRegistry();
+
+  constructor(registry: RuleRegistry) {
+    this.registry = registry;
+  }
+  async validates(params: ChainRuleValidateParams): Promise<ChainValidatorItem[]> {
+    let result: ChainValidatorItem[] = [];
+    for (const item of this.registry.items) {
+      result = await item.validate(params);
     }
 
     return result;

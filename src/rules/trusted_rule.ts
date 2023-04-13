@@ -1,6 +1,6 @@
-import { ChainValidatorItem, ChainRuleValidateParams } from "../rule_validate/chain_validate";
-import { ChainRule, ChainRuleType, recordingCertificateVerificationResults } from "../rule_validate/rule_registry";
+import { ChainRule, ChainRuleType, recordingCertificateVerificationResults } from "./rule_registry";
 import { X509CertificateTree } from "../x509_certificate_tree";
+import { ChainRuleValidateParams, ChainValidatorItem } from "../x509_chain_validator";
 
 /**
  * Trusted Rule
@@ -8,7 +8,7 @@ import { X509CertificateTree } from "../x509_certificate_tree";
  */
 export class TrustedRule implements ChainRule {
 
-  public id: string = "trusted";
+  public id = "trusted";
   public type: ChainRuleType = "critical";
   public verifiedCertificates: ChainValidatorItem[] = [];
 
@@ -18,9 +18,9 @@ export class TrustedRule implements ChainRule {
     for (const chainCert of params.chain) {
       const trustedChain = await chain.certificateStorage.isTrusted(chainCert);
       if (!trustedChain.result) {
-        await recordingCertificateVerificationResults(chainCert, { status: false, details: "Parent certificates are not included in trusted list" }, this.verifiedCertificates);
+        await recordingCertificateVerificationResults(chainCert, { code: this.id, status: false, details: "Parent certificates are not included in trusted list" }, this.verifiedCertificates);
       } else {
-        await recordingCertificateVerificationResults(chainCert, { status: true, details: "Parent certificates are included in trusted list" }, this.verifiedCertificates);
+        await recordingCertificateVerificationResults(chainCert, { code: this.id, status: true, details: "Parent certificates are included in trusted list" }, this.verifiedCertificates);
       }
     }
 
