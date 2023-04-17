@@ -84,7 +84,7 @@ export class X509CertificateTree implements ICertificateStorage {
     return certificatesTree;
   }
 
-  public async buildTree(cert: X509Certificate): Promise<IX509CertificateNode> {
+  public async build(cert: X509Certificate): Promise<IX509CertificateNode> {
     return await this.#build(cert, this.createNode(cert));
   }
 }

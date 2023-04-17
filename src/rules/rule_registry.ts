@@ -1,30 +1,16 @@
-import { isEqual } from "pvtsutils";
-import { cryptoProvider } from "../provider";
-import { X509Certificate } from "../x509_cert";
-import { ChainRuleValidateParams, ChainRuleValidateResult, ChainValidatorItem } from "../x509_chain_validator";
+import { ChainRuleValidateParams, ChainRuleValidateResult } from "../x509_chain_validator";
 
 export type ChainRuleType = "critical" | "error" | "notice" | "warning";
 
 export interface ChainRule {
   id: string;
   type: ChainRuleType;
-  validate(params: ChainRuleValidateParams): Promise<ChainValidatorItem[]>;
+  validate(params: ChainRuleValidateParams): Promise<ChainRuleValidateResult>;
 }
 
-export async function recordingCertificateVerificationResults(chainCert: X509Certificate, result: ChainRuleValidateResult, verifiedCertificates: ChainValidatorItem[], crypto = cryptoProvider.get()) {
-  const arr = [];
-  for (const certInfo of verifiedCertificates) {
-    arr.push(isEqual(await certInfo.certificate.getThumbprint(crypto), await chainCert.getThumbprint(crypto)));
-  }
-  if (arr.includes(true)) {
-    for (const certInfo of verifiedCertificates) {
-      if (isEqual(await certInfo.certificate.getThumbprint(crypto), await chainCert.getThumbprint(crypto))) {
-        certInfo.results.push(result);
-      }
-    }
-  } else {
-    verifiedCertificates.push({ certificate: chainCert, results: [result], status: true });
-  }
+export interface RuleValidatorResult {
+  status: boolean;
+  items: ChainRuleValidateResult[];
 }
 
 export class RuleRegistry {
@@ -37,8 +23,6 @@ export class RuleRegistry {
   add(rule: ChainRule): void {
     this.items.push(rule);
   }
-
-  // get<T extends ChainRule>(type: new () => T): T;
 }
 
 export class Rules {
@@ -47,10 +31,20 @@ export class Rules {
   constructor(registry: RuleRegistry) {
     this.registry = registry;
   }
-  async validates(params: ChainRuleValidateParams): Promise<ChainValidatorItem[]> {
-    let result: ChainValidatorItem[] = [];
-    for (const item of this.registry.items) {
-      result = await item.validate(params);
+  async validates(params: ChainRuleValidateParams): Promise<RuleValidatorResult> {
+    const result: RuleValidatorResult = { items: [], status: true };
+
+    for (let i = 0; i < this.registry.items.length; i++) {
+      const item = await this.registry.items[i].validate(params);
+      result.items.push(item);
+      if (item.status === false) {
+        result.status = false;
+
+        // если проверка имеет тип "critical", то дальнейшая проверка не имеет смысла
+        if (this.registry.items[i].type === "critical") {
+          break;
+        }
+      }
     }
 
     return result;

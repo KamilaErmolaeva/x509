@@ -32,14 +32,17 @@ export interface ChainRuleValidateResult {
   details: string;
 }
 
-export interface IX509ChainExpired {
+export interface IX509ChainPolicy {
   checkDate: Date;
+  options: unknown;
 }
 
 export class X509ChainValidator {
 
   rules: RuleRegistry;
   certificateStorage: ICertificateStorageHandler = new DefaultCertificateStorageHandler();
+
+  policy: IX509ChainPolicy | undefined;
 
   constructor() {
     this.rules = new RuleRegistry();
@@ -83,28 +86,36 @@ export class X509ChainValidator {
       items: [],
     };
 
-    // проверить цепочку используя RuleValidator
+    // добавить в результат сертификаты из цепочки
+    res.items = chain.map(item => ({
+      certificate: item,
+      results: [],
+      status: true,
+    }));
+
+
+    // проверить цепочку используя Rule
     const ruleValidator = new Rules(this.rules);
 
     for (let i = 0; i < chain.length; i++) {
-      const cert = chain[i];
+      const node = chain[i];
 
       const result = await ruleValidator.validates({
         node: treeRoot,
-        cert,
+        cert: node,
         chain: chain as X509Certificates,
-        options: "",
-        checkDate: new Date(),
+        checkDate: this.policy && this.policy.checkDate || new Date(),
+        options: this.policy && this.policy.options || "",
       });
 
-      for (const item of result) {
-        if (!item.status) {
-          res.status = false;
-
-          return res;
-        }
+      // если в цепочке есть сертификат, который не прошел проверку, то цепочка считается невалидной и проверяется следующая цепочка
+      if (!result.status) {
+        res.status = false;
+        res.items[i].status = false;
       }
-      res.items[0].results = result[0].results;
+
+      // добавить в результат результаты проверки сертификата
+      res.items[i].results = result.items;
     }
 
     return res;
