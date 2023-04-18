@@ -22,8 +22,6 @@ export interface ChainRuleValidateParams {
   node: IX509CertificateNode;
   cert: X509Certificate;
   chain: X509Certificates;
-  options: any;
-  checkDate: Date;
 }
 
 export interface ChainRuleValidateResult {
@@ -32,17 +30,10 @@ export interface ChainRuleValidateResult {
   details: string;
 }
 
-export interface IX509ChainPolicy {
-  checkDate: Date;
-  options: unknown;
-}
-
 export class X509ChainValidator {
 
   rules: RuleRegistry;
   certificateStorage: ICertificateStorageHandler = new DefaultCertificateStorageHandler();
-
-  policy: IX509ChainPolicy | undefined;
 
   constructor() {
     this.rules = new RuleRegistry();
@@ -104,8 +95,6 @@ export class X509ChainValidator {
         node: treeRoot,
         cert: node,
         chain: chain as X509Certificates,
-        checkDate: this.policy && this.policy.checkDate || new Date(),
-        options: this.policy && this.policy.options || "",
       });
 
       // если в цепочке есть сертификат, который не прошел проверку, то цепочка считается невалидной и проверяется следующая цепочка

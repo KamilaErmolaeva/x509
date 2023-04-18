@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import * as x509 from "../src";
+import { ExpiredRule } from "../src/rules/expired_rule";
 // import { ChainRule, Rules, RulesRegistry } from "../src/rules/rule_registry";
 // import { CyclicRule } from "../src/rules/cyclic_rule";
 // import { TrustedRule } from "../src/rules/trusted_rule";
@@ -107,6 +108,7 @@ CEn5YlJTjpTwKK0=
 
   async function buildChains(cert: x509.X509Certificate, certsTree: x509.X509Certificates) {
     const validator = new x509.X509ChainValidator();
+    validator.rules.get(ExpiredRule).checkDate = new Date("2043-01-15");
     validator.certificateStorage.certificates = certsTree;
     const result = await validator.validate(cert);
 

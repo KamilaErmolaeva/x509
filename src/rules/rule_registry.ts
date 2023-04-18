@@ -23,6 +23,12 @@ export class RuleRegistry {
   add(rule: ChainRule): void {
     this.items.push(rule);
   }
+
+  public get<T extends ChainRule>(type: new () => T): T {
+    return this.items.find(rule => {
+      return rule instanceof type;
+    }) as T;
+  }
 }
 
 export class Rules {
