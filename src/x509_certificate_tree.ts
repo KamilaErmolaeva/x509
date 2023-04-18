@@ -1,5 +1,5 @@
 import { ICertificateStorage, ICertificateStorageHandler } from "./certificate_storage_handler";
-import { DefaultCertificateStorageHandler } from "./certificate_storage_handler";
+import { DefaultCertificateStorageHandler } from "./default_certificate_storage_handler";
 import { cryptoProvider } from "./provider";
 import { X509Certificate } from "./x509_cert";
 import { Convert } from "pvtsutils";
