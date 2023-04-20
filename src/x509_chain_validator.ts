@@ -30,6 +30,28 @@ export interface ChainRuleValidateResult {
   details: string;
 }
 
+export async function buildChains(cert: X509Certificate, certsTree: X509Certificates) {
+  const validator = new X509ChainValidator();
+  validator.certificateStorage.certificates = certsTree;
+  const result = await validator.validate(cert);
+
+  if (!result.status) {
+    console.log("Certificate chain is not valid");
+
+    // список ошибок для каждого сертификата
+    for (const item of result.items) {
+      console.log(item.certificate.subject);
+      for (const rule of item.results) {
+        if (!rule.status) {
+          console.log(rule.code, rule.details);
+        }
+      }
+    }
+  } else {
+    console.log("Certificate chain is valid");
+  }
+}
+
 export class X509ChainValidator {
 
   rules: RuleRegistry;

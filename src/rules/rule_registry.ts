@@ -24,10 +24,24 @@ export class RuleRegistry {
     this.items.push(rule);
   }
 
-  public get<T extends ChainRule>(type: new () => T): T {
+  /**
+   * Returns a rule of the specified type
+   * @param type Rule
+   * @returns Rule
+   */
+  get<T extends ChainRule>(type: new () => T): T {
     return this.items.find(rule => {
       return rule instanceof type;
     }) as T;
+  }
+
+  /**
+   * Removes all items from rules
+   */
+  clear(): void {
+    while (this.items.pop()) {
+      //nothing
+    }
   }
 }
 

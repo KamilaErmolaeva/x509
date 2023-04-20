@@ -19,6 +19,7 @@ type X509ChainNodeStorage = Record<CertificateThumbprint, IX509CertificateNode>;
 export class X509CertificateTree implements ICertificateStorage {
   public certificateStorage: ICertificateStorageHandler = new DefaultCertificateStorageHandler();
   public chainNodeStorage: X509ChainNodeStorage = {};
+  public cyclicality = false;
 
   /**
    * Returns the node of the certificate
@@ -43,11 +44,13 @@ export class X509CertificateTree implements ICertificateStorage {
       } else {
         if (!certificatesTree.nodes.some(item => item.certificate.equal(parentCert))) {
           certificatesTree.nodes.push(this.createNode(parentCert));
+        } else {
+          this.cyclicality = true;
         }
       }
     } else {
-      certificatesTree.nodes.forEach(item => {
-        this.fillNode(item, lastCert, parentCert);
+      certificatesTree.nodes.forEach(async (item) => {
+        await this.fillNode(item, lastCert, parentCert);
       });
     }
   }
@@ -66,6 +69,8 @@ export class X509CertificateTree implements ICertificateStorage {
     }
 
     if (await cert.isSelfSigned(crypto)) {
+      this.cyclicality = false;
+
       return certificatesTree;
     }
 
@@ -73,9 +78,14 @@ export class X509CertificateTree implements ICertificateStorage {
 
     if (lastCerts) {
       for (let i = 0; i < lastCerts.length; i++) {
-        this.fillNode(certificatesTree, cert, lastCerts[i]);
+        await this.fillNode(certificatesTree, cert, lastCerts[i]);
         if (!this.chainNodeStorage[thumbprint].nodes.some(item => lastCerts && item.certificate.equal(lastCerts[i]))) {
           this.chainNodeStorage[thumbprint].nodes.push(this.createNode(lastCerts[i]));
+        }
+        if (this.cyclicality) {
+          this.cyclicality = false;
+
+          continue;
         }
         await this.#build(lastCerts[i], certificatesTree);
       }
