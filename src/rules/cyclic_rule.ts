@@ -12,7 +12,8 @@ export class CyclicRule implements ChainRule {
   public id = "cyclic";
   public type: ChainRuleType = "critical";
 
-  public async validate(params: ChainRuleValidateParams, crypto = cryptoProvider.get()): Promise<ChainRuleValidateResult> {
+  public async validate(params: ChainRuleValidateParams): Promise<ChainRuleValidateResult> {
+    const crypto = cryptoProvider.get();
     for (let i = 0; i < params.chain.length; i++) {
       const thumbprint = await params.chain[i].getThumbprint(crypto);
       for (let j = i + 1; j < params.chain.length; j++) {
