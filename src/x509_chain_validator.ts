@@ -146,7 +146,7 @@ export class X509ChainBuilderFromTree {
    * @param tree certificates tree
    * @returns certificate chains
    */
-  #build(tree: IX509CertificateNode, certificateChain: Array<X509Certificate>) {
+  #build(tree: IX509CertificateNode, certificateChain: Array<X509Certificate>): Array<X509Certificate>[] {
     certificateChain.push(tree.certificate);
 
     if (tree.nodes.length > 1) {
@@ -170,7 +170,12 @@ export class X509ChainBuilderFromTree {
     return this.certificateChains;
   }
 
-  public build(tree: IX509CertificateNode) {
+  /**
+ * Returns all possible certificate chains from the certificate tree
+ * @param tree certificates tree
+ * @returns certificate chains
+ */
+  public build(tree: IX509CertificateNode): Array<X509Certificate>[] {
 
     return this.#build(tree, []);
   }

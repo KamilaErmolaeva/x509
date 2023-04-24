@@ -1,6 +1,10 @@
 import { ChainRuleValidateParams, ChainRuleValidateResult } from "../x509_chain_validator";
 
-export type ChainRuleType = "critical" | "error" | "notice" | "warning";
+export type ChainRuleType =
+  "critical" | //critical - ошибка, которая приводит к прерыванию проверки и установке статуса "invalid"
+  "error" |    //error - ошибка, которая не приводит к прерыванию проверки и установке статуса "invalid"
+  "notice" |   //warning - предупреждение, которое не приводит к прерыванию проверки и не меняет статус
+  "warning";   //notice - информационное сообщение, которое не приводит к прерыванию проверки и не меняет статус
 
 export interface ChainRule {
   id: string;
