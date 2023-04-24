@@ -1,11 +1,5 @@
 import * as assert from "assert";
 import * as x509 from "../src";
-import { ChainRule } from "../src/rules/rule_registry";
-import { X509Certificate } from "../src/x509_cert";
-import { X509Certificates } from "../src/x509_certs";
-import { ExpiredRule } from "../src/rules/expired_rule";
-import { TrustedRule } from "../src/rules/trusted_rule";
-import { CyclicRule } from "../src/rules/cyclic_rule";
 
 context("validation_rules", () => {
   const certsTree = new x509.X509Certificates();
@@ -137,9 +131,9 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
   const tests: {
     name: string;
     args: {
-      cert: X509Certificate;
-      certsTree: X509Certificates;
-      rule: () => ChainRule;
+      cert: x509.X509Certificate;
+      certsTree: x509.X509Certificates;
+      rule: () => x509.rules.ChainRule;
     },
     want: {
       status: boolean;
@@ -152,7 +146,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
           cert: certsTree[5],
           certsTree,
           rule: () => {
-            const r = new ExpiredRule();
+            const r = new x509.rules.ExpiredRule();
             r.checkDate = new Date("2023/08/19");
 
             return r;
@@ -169,7 +163,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
           cert: certsTree[5],
           certsTree,
           rule: () => {
-            const r = new ExpiredRule();
+            const r = new x509.rules.ExpiredRule();
             r.checkDate = new Date("2020/08/18");
 
             return r;
@@ -186,7 +180,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
           cert: certsTree[5],
           certsTree,
           rule: () => {
-            const r = new ExpiredRule();
+            const r = new x509.rules.ExpiredRule();
             r.checkDate = new Date("2043/08/18");
 
             return r;
@@ -203,7 +197,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
           cert: certsTree[5],
           certsTree,
           rule: () => {
-            const r = new ExpiredRule();
+            const r = new x509.rules.ExpiredRule();
             r.checkDate = new Date("2031/12/26");
 
             return r;
@@ -220,7 +214,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
           cert: certsTree[5],
           certsTree,
           rule: () => {
-            const r = new TrustedRule();
+            const r = new x509.rules.TrustedRule();
 
             return r;
           },
@@ -236,7 +230,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
           cert: certsTree[5],
           certsTree,
           rule: () => {
-            const r = new CyclicRule();
+            const r = new x509.rules.CyclicRule();
 
             return r;
           },
@@ -252,7 +246,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
           cert: certsTreeCyclic[0],
           certsTree: certsTreeCyclic,
           rule: () => {
-            const r = new CyclicRule();
+            const r = new x509.rules.CyclicRule();
 
             return r;
           },
