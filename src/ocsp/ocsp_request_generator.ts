@@ -1,6 +1,7 @@
 import * as ocsp from "@peculiar/asn1-ocsp";
 import * as asn1X509 from "@peculiar/asn1-x509";
-import { AsnConvert, OctetString } from "@peculiar/asn1-schema";
+import { NonceExtension } from "../extensions";
+import { AsnConvert } from "@peculiar/asn1-schema";
 import { container } from "tsyringe";
 import { Extension } from "../extension";
 import { GeneralName } from "../general_name";
@@ -57,13 +58,10 @@ export class OCSPRequestGenerator {
     const certID = await CertificateID.create(algorithm, params.issuer, params.certificate.serialNumber, crypto);
     const nonce = crypto.getRandomValues(new Uint8Array(20));
 
-
     // process request extensions and add nonce
     const requestExtensions = params.extensions?.map(o => AsnConvert.parse(o.rawData, asn1X509.Extension)) || [];
-    requestExtensions.push(new asn1X509.Extension({
-      extnID: ocsp.id_pkix_ocsp_nonce,
-      extnValue: new OctetString(nonce),
-    }));
+    const nonceExt = new NonceExtension(nonce);
+    requestExtensions.push(AsnConvert.parse(nonceExt.rawData, asn1X509.Extension));
 
     const asnOcspReq = new ocsp.OCSPRequest({
       tbsRequest: new ocsp.TBSRequest({
@@ -102,10 +100,10 @@ export class OCSPRequestGenerator {
         throw Error("Cannot convert ASN.1 signature value to WebCrypto format");
       }
 
-      if (asnOcspReq.optionalSignature) {
-        asnOcspReq.optionalSignature.signature = asnSignature;
-        asnOcspReq.optionalSignature.signatureAlgorithm = algProv.toAsnAlgorithm(params.signatureAlgorithm as HashedAlgorithm);
-      }
+      asnOcspReq.optionalSignature = new ocsp.Signature({
+        signature: asnSignature,
+        signatureAlgorithm: algProv.toAsnAlgorithm(params.signatureAlgorithm as HashedAlgorithm),
+      });
     }
 
     return new OCSPRequest(asnOcspReq);
