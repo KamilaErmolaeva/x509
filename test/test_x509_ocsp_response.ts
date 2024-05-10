@@ -174,7 +174,7 @@ context("OCSP", async () => {
       thisUpdate: new Date(Date.UTC(2024, 0, 1, 8, 0, 0)),
       nextUpdate: new Date(Date.UTC(2025, 0, 1, 8, 0, 0)),
       extensions : [],
-      status: 0,
+      status: {good :null},
     };
 
     const ocspRequestParams: OCSPResponseCreateParams = {

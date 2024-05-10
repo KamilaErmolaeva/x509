@@ -12,7 +12,8 @@ import { IAsnSignatureFormatter, diAsnSignatureFormatter } from "../asn_signatur
 import { HashedAlgorithm } from "../types";
 import { PublicKey, PublicKeyType } from "../public_key";
 import { BufferSourceConverter } from "pvtsutils";
-import { Name } from "../name"
+import { Name } from "../name";
+import { CertStatus } from "@peculiar/asn1-ocsp";
 
 
 export interface SingleResponseInterface {
@@ -27,7 +28,7 @@ export interface SingleResponseInterface {
   /**
    * certificate status
    */
-  status: OCSPResponseStatus;
+  status: CertStatus;
   /**
    * Time the status of the certificate was last updated
    */
@@ -79,9 +80,6 @@ export interface OCSPResponseCreateParams {
    * List of response extensions
    */
   extensions?: Extension[];
-  /**
-   * nonce data
-   */
 }
 
 export class OCSPResponseGenerator {
@@ -119,7 +117,7 @@ export class OCSPResponseGenerator {
           issuerKeyHash: new OctetString(await singleResponse.issuer.publicKey.getKeyIdentifier(crypto)),
           serialNumber: Convert.FromHex(singleResponse.certificate.serialNumber)
         }),
-        certStatus: new ocsp.CertStatus({good: null}),
+        certStatus: new ocsp.CertStatus(singleResponse.status),
         thisUpdate: singleResponse.thisUpdate,
         // nextUpdate is optional
         ...(singleResponse.nextUpdate ? { nextUpdate: singleResponse.nextUpdate } : {})
