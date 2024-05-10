@@ -90,29 +90,15 @@ export class OCSPResponseGenerator {
    * @returns OCSP response.
    */
   public static async create(params: OCSPResponseCreateParams, crypto = cryptoProvider.get()): Promise<OCSPResponse> {
-
     // assemble single responses
     const algProv = container.resolve<AlgorithmProvider>(diAlgorithmProvider);
-    const paramsSignatureAlgorithm = params.signatureAlgorithm;
-    // if signature algorithm is undefined use sha-1
-    // else convert it using algorithm provider
-    let hashAlgorithm: asn1X509.AlgorithmIdentifier;
-    if(!paramsSignatureAlgorithm) {
-      hashAlgorithm =  algProv.toAsnAlgorithm({name: "SHA-1"});
-    }else if(typeof paramsSignatureAlgorithm === "string"){
-      hashAlgorithm = algProv.toAsnAlgorithm({ name: paramsSignatureAlgorithm});
-    }else{
-      hashAlgorithm = algProv.toAsnAlgorithm(paramsSignatureAlgorithm);
-    }
-
-
 
     const responses: ocsp.SingleResponse[] = [];
     for(const singleResponse of params.singleResponses) {
       const response = new ocsp.SingleResponse({
         certID: new ocsp.CertID({
           // if hash algorithm is undefined use sha-1
-          hashAlgorithm: hashAlgorithm,
+          hashAlgorithm: algProv.toAsnAlgorithm({name: "SHA-1"}),
           issuerNameHash: new OctetString(await singleResponse.issuer.subjectName.getThumbprint(crypto)),
           issuerKeyHash: new OctetString(await singleResponse.issuer.publicKey.getKeyIdentifier(crypto)),
           serialNumber: Convert.FromHex(singleResponse.certificate.serialNumber)
@@ -124,7 +110,6 @@ export class OCSPResponseGenerator {
       });
       responses.push(response);
     }
-
 
     // Parse responder to see if the responder ID is passed as name or key hash
     let responderID: ocsp.ResponderID;
@@ -167,7 +152,9 @@ export class OCSPResponseGenerator {
     });
 
     const tbs = AsnConvert.serialize(tbsResponseData);
-    const signingAlgorithm = params.signingKey.algorithm;
+    let signingAlgorithm = typeof(params.signatureAlgorithm) === "string" ? {name: params.signatureAlgorithm} : params.signatureAlgorithm;
+    signingAlgorithm = {...signingAlgorithm, ...params.signingKey.algorithm};
+
     const signatureValue = await crypto.subtle.sign(signingAlgorithm, params.signingKey, tbs);
     // Convert WebCrypto signature to ASN.1 format
     const signatureFormatters = container.resolveAll<IAsnSignatureFormatter>(diAsnSignatureFormatter).reverse();
