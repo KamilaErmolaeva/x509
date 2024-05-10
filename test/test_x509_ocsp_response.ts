@@ -193,7 +193,7 @@ context("OCSP", async () => {
       /**
        * The certificate that will be used to sign the response
        */
-      responderCertificate: CACert,
+      responder: CACert.subjectName,
       /**
        * List of certificates that can be used to verify the signature of the response
        */

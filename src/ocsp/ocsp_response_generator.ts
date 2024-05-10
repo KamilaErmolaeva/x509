@@ -10,6 +10,9 @@ import { OCSPResponse, OCSPResponseStatus } from "./ocsp_response";
 import { AlgorithmProvider, diAlgorithmProvider } from "../algorithm";
 import { IAsnSignatureFormatter, diAsnSignatureFormatter } from "../asn_signature_formatter";
 import { HashedAlgorithm } from "../types";
+import { PublicKey, PublicKeyType } from "../public_key";
+import { BufferSourceConverter } from "pvtsutils";
+import { Name } from "../name"
 
 
 export interface SingleResponseInterface {
@@ -57,7 +60,7 @@ export interface OCSPResponseCreateParams {
   /**
    * The certificate that will be used to sign the response
    */
-   responderCertificate: X509Certificate;
+  responder: PublicKeyType | Name;
   /**
    * List of certificates that can be used to verify the signature of the response
    */
@@ -96,22 +99,15 @@ export class OCSPResponseGenerator {
     // if signature algorithm is undefined use sha-1
     // else convert it using algorithm provider
     let hashAlgorithm: asn1X509.AlgorithmIdentifier;
-    let signatureAlgorithm: Algorithm;
     if(!paramsSignatureAlgorithm) {
-      signatureAlgorithm = {name: "SHA-1"};
-      hashAlgorithm = algProv.toAsnAlgorithm({ name: "SHA-1"});
+      hashAlgorithm =  algProv.toAsnAlgorithm({name: "SHA-1"});
     }else if(typeof paramsSignatureAlgorithm === "string"){
       hashAlgorithm = algProv.toAsnAlgorithm({ name: paramsSignatureAlgorithm});
-      signatureAlgorithm = {name: paramsSignatureAlgorithm};
     }else{
       hashAlgorithm = algProv.toAsnAlgorithm(paramsSignatureAlgorithm);
-      signatureAlgorithm = params.signatureAlgorithm as Algorithm;
     }
 
-    //TODO add support for other algorithms
-    const signingAlgorithm = {name : "ECDSA",
-                              hash: signatureAlgorithm,
-                              namedCurve: "P-256"};
+
 
     const responses: ocsp.SingleResponse[] = [];
     for(const singleResponse of params.singleResponses) {
@@ -131,18 +127,50 @@ export class OCSPResponseGenerator {
       responses.push(response);
     }
 
+
+    // Parse responder to see if the responder ID is passed as name or key hash
+    let responderID: ocsp.ResponderID;
+    if (params.responder instanceof Name) {
+      const name = params.responder.toArrayBuffer();
+      responderID = new ocsp.ResponderID({ byName: AsnConvert.parse(name, asn1X509.Name) });
+    } else {
+      // Convert public key to CryptoKey
+      const responderKey = params.responder;
+      let publicKey: CryptoKey;
+      let keyAlgorithm: Algorithm;
+      if ("publicKey" in responderKey) {
+        // IPublicKeyContainer
+        keyAlgorithm = { ...responderKey.publicKey.algorithm};
+        publicKey = await responderKey.publicKey.export(keyAlgorithm, ["verify"], crypto);
+      } else if (responderKey instanceof PublicKey) {
+        // PublicKey
+        keyAlgorithm = { ...responderKey.algorithm};
+        publicKey = await responderKey.export(keyAlgorithm, ["verify"], crypto);
+      } else if (BufferSourceConverter.isBufferSource(responderKey)) {
+        const key = new PublicKey(responderKey);
+        keyAlgorithm = { ...key.algorithm};
+        publicKey = await key.export(keyAlgorithm, ["verify"], crypto);
+      } else {
+        // CryptoKey
+        keyAlgorithm = { ...responderKey.algorithm};
+        publicKey = responderKey;
+      }
+      const spki = await crypto.subtle.exportKey("spki", publicKey);
+      const asnPubKey = new PublicKey(AsnConvert.parse(spki, asn1X509.SubjectPublicKeyInfo));
+      responderID = new ocsp.ResponderID({ byKey: new OctetString(await asnPubKey.getKeyIdentifier(crypto)) });
+    }
     // construct tbsResponseData and get signature using signing key
     const tbsResponseData = new ocsp.ResponseData({
       version: ocsp.Version.v1,
-      responderID: new ocsp.ResponderID({ byKey: new OctetString(await params.responderCertificate.publicKey.getThumbprint("SHA-1", crypto)) }),
+      responderID: responderID,
       producedAt: params.date || new Date(),
       responses,
       responseExtensions: new asn1X509.Extensions(params.extensions?.map(o => AsnConvert.parse(o.rawData, asn1X509.Extension)) || [])
     });
 
     const tbs = AsnConvert.serialize(tbsResponseData);
+    const signingAlgorithm = params.signingKey.algorithm;
     const signatureValue = await crypto.subtle.sign(signingAlgorithm, params.signingKey, tbs);
-
     // Convert WebCrypto signature to ASN.1 format
     const signatureFormatters = container.resolveAll<IAsnSignatureFormatter>(diAsnSignatureFormatter).reverse();
     let asnSignature: ArrayBuffer | null = null;
@@ -156,7 +184,6 @@ export class OCSPResponseGenerator {
       throw Error("Cannot convert ASN.1 signature value to WebCrypto format");
     }
 
-    // const signatureAlgorithm2 = {...paramsSignatureAlgorithm, ...params.signingKey.algorithm} as HashedAlgorithm;
     const basicOCSPResp = new ocsp.BasicOCSPResponse({
       tbsResponseData: tbsResponseData,
       signature: asnSignature,
