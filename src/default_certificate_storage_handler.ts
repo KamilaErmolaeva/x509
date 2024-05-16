@@ -7,6 +7,7 @@ import { cryptoProvider } from "./provider";
 import { AuthorityKeyIdentifierExtension, SubjectKeyIdentifierExtension } from "./extensions";
 import { ICertificateStorageHandler, IResult } from "./certificate_storage_handler";
 import { X509Crl } from "./x509_crl";
+import { OCSPResponse } from "./ocsp";
 
 export class DefaultCertificateStorageHandler implements ICertificateStorageHandler {
 
@@ -14,6 +15,7 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
   public certificates = new X509Certificates();
   public crls: X509Crl[] = [];
 
+  public ocsp: OCSPResponse[] = [];
   public async findIssuers(cert: X509Certificate, crypto = cryptoProvider.get()): Promise<X509Certificates> {
     const issuerCerts: X509Certificates = new X509Certificates();
     if (this.parent) {
@@ -69,6 +71,52 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
     return {
       target: this,
       result: false,
+    };
+  }
+
+  /**
+   *  Find the latest OCSP response for the certificate
+   **/
+  public async findOCSP(cert: X509Certificate): Promise<IResult<OCSPResponse | null>> {
+    const serialNumber = cert.serialNumber;
+    if (this.ocsp.length === 0) {
+      return {
+        target: this,
+        result: null,
+      };
+    }else{
+      const validResponses = this.ocsp.filter((ocsp) => {
+        const singleResponses = ocsp.basicResponse?.responses;
+        if (!singleResponses) {
+          return false;
+        }else{
+          return singleResponses.some((singleResponse) => {
+            return singleResponse.certificateID.serialNumber === serialNumber;
+          });
+        }
+       });
+      // if there are no valid responses return null
+      // else return the latest response
+      if (validResponses.length === 0){
+        return {
+          target: this,
+          result: null,
+        }
+      }else{
+          // sort the responses by the producedAt field
+          validResponses.sort((a, b) => {
+            if(!a.basicResponse || !b.basicResponse){
+              return 0;
+            }
+
+            return a.basicResponse?.producedAt.getTime() - b.basicResponse?.producedAt.getTime();
+          });
+        }
+    }
+
+   return {
+      target: this,
+      result: this.ocsp[0],
     };
   }
 }

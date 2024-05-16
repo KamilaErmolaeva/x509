@@ -1,3 +1,4 @@
+import { OCSPResponse } from "./ocsp";
 import { X509Certificate } from "./x509_cert";
 import { X509Certificates } from "./x509_certs";
 import { X509Crl } from "./x509_crl";
@@ -17,6 +18,7 @@ export interface ICertificateStorageHandler {
   certificates: X509Certificates;
   crls?: X509Crl[];
 
+  ocsp?: OCSPResponse[];
   /**
    * Returns issuer certificate or certificates
    * @param cert Issued certificate
@@ -28,6 +30,11 @@ export interface ICertificateStorageHandler {
    * Returns true if certificate is trusted
    */
   isTrusted(cert: X509Certificate): Promise<IResult<boolean>>;
+
+  /**
+   * Returns the latest OCSP response for the certificate
+   */
+  findOCSP(cert: X509Certificate): Promise<IResult<OCSPResponse | null>>;
 
 }
 

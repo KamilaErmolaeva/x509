@@ -273,5 +273,6 @@ context("validation_rules_google_certs", () => {
     // parse results
     const result = await validator.validate(certsTree[0]);
     assert(result.status === true);
+
   });
 });

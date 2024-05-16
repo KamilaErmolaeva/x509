@@ -19,6 +19,8 @@ export class SingleResponse extends AsnData<ocsp.SingleResponse> implements IExt
    */
   public status!: boolean;
 
+  public revocationTime?: Date;
+
   public thisUpdate!: Date;
 
   public nextUpdate?: Date;
@@ -27,7 +29,20 @@ export class SingleResponse extends AsnData<ocsp.SingleResponse> implements IExt
 
   protected onInit(asn: ocsp.SingleResponse): void {
     this.certificateID = new CertificateID(asn.certID);
-    this.status = asn.certStatus.good ? true : false;
+
+    // status is parsed from asn.certStatus which takes form of {good: null} if the status is good
+    // and {revoked: {revocationTime: Date, revocationReason: string}} if the status is revoked
+    if(asn.certStatus.good === null) {
+      this.status = true;
+    }else {
+      this.status = false;
+      if(asn.certStatus.revoked?.revocationTime) {
+        this.revocationTime = asn.certStatus.revoked.revocationTime;
+      }
+      if(asn.certStatus.revoked?.revocationReason) {
+        // TODO: implement revocationReason
+      }
+    }
     this.thisUpdate = asn.thisUpdate;
     if (asn.nextUpdate) {
       this.nextUpdate = asn.nextUpdate;
