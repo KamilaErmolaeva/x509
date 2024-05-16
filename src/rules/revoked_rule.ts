@@ -1,8 +1,6 @@
 import { ChainRuleValidateParams, ChainRuleValidateResult } from "../x509_chain_validator";
 import { ChainRule, ChainRuleType } from "./rule_registry";
 import {X509CertificateTree}  from "../x509_certificate_tree";
-import { OCSPWorker } from "../ocsp";
-import { rules } from "..";
 
 
 /**
