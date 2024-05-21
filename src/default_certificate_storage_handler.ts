@@ -79,13 +79,14 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
    **/
   public async findOCSP(cert: X509Certificate): Promise<IResult<OCSPResponse | null>> {
     const serialNumber = cert.serialNumber;
+    let validResponses: OCSPResponse[];
     if (this.ocsp.length === 0) {
       return {
         target: this,
         result: null,
       };
     }else{
-      const validResponses = this.ocsp.filter((ocsp) => {
+      validResponses = this.ocsp.filter((ocsp) => {
         const singleResponses = ocsp.basicResponse?.responses;
         if (!singleResponses) {
           return false;
@@ -101,7 +102,7 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
         return {
           target: this,
           result: null,
-        }
+        };
       }else{
           // sort the responses by the producedAt field
           validResponses.sort((a, b) => {
@@ -116,7 +117,27 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
 
    return {
       target: this,
-      result: this.ocsp[0],
+      result: validResponses[0],
     };
+  }
+
+  findCertificate(responderID: string | ArrayBuffer): X509Certificate | undefined {
+    if (typeof responderID === "string") {
+      for (const cert of this.certificates) {
+        if (cert.subject === responderID) {
+          return cert;
+        }
+      }
+    } else {
+      const keyId = Buffer.from(responderID).toString("hex");
+      for (const cert of this.certificates) {
+        const ski = cert.getExtension<SubjectKeyIdentifierExtension>(asn1X509.id_ce_subjectKeyIdentifier);
+        if (ski && ski.keyId === keyId) {
+          return cert;
+        }
+      }
+    }
+
+    return undefined;
   }
 }

@@ -23,7 +23,7 @@ export interface ChainRuleValidateParams {
   node: IX509CertificateNode;
   cert: X509Certificate;
   chain: X509Certificates;
-  storage: ICertificateStorageHandler;
+  tree: X509CertificateTree;
 }
 
 export interface ChainRuleValidateResult {
@@ -67,18 +67,28 @@ export class X509ChainValidator {
     this.rules.add(new TrustedRule());
   }
 
-  async validate(cert: X509Certificate): Promise<ChainValidatorResult> {
-    const tree = new X509CertificateTree();
-    const certificateChains = new X509ChainBuilderFromTree();
-    tree.certificateStorage = this.certificateStorage;
-    const treeRoot = await tree.build(cert);
-    const chains = certificateChains.build(treeRoot);
+  async validate(cert: X509Certificate, tree?: X509CertificateTree): Promise<ChainValidatorResult> {
+
+    // Add the option to pass the existing tree and build from there
+    let treeRoot: IX509CertificateNode;
+    let chains: Array<X509Certificate>[];
+
+    if(tree) {
+      treeRoot = await tree.build(cert);
+      chains = new X509ChainBuilderFromTree().build(treeRoot);
+    }else{
+      tree = new X509CertificateTree();
+      tree.certificateStorage = this.certificateStorage;
+      treeRoot = await tree.build(cert);
+      chains =new X509ChainBuilderFromTree().build(treeRoot);
+    }
+
 
     let result: ChainValidatorResult | undefined;
 
 
     for (const chain of chains) {
-      result = await this.validateChain(chain, treeRoot, this.certificateStorage);
+      result = await this.validateChain(chain, treeRoot, tree);
       if (result.status) {
         return result;
       }
@@ -91,7 +101,7 @@ export class X509ChainValidator {
     return result;
   }
 
-  protected async validateChain(chain: X509Certificate[], treeRoot: IX509CertificateNode, certificateStorage: ICertificateStorageHandler): Promise<ChainValidatorResult> {
+  async validateChain(chain: X509Certificate[], treeRoot: IX509CertificateNode, tree: X509CertificateTree): Promise<ChainValidatorResult> {
     // вернуть ошибку если цепочка пустая
     if (chain.length === 0) {
       throw new Error("Chain is empty");
@@ -120,7 +130,7 @@ export class X509ChainValidator {
         node: treeRoot,
         cert: node,
         chain: chain as X509Certificates,
-        storage: certificateStorage,
+        tree: tree,
       });
 
       // если в цепочке есть сертификат, который не прошел проверку, то цепочка считается невалидной и проверяется следующая цепочка
