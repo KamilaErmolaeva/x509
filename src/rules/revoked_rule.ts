@@ -1,92 +1,94 @@
+import { Convert } from "pvtsutils";
+import { X509CertificateTree } from "../x509_certificate_tree";
 import { ChainRuleValidateParams, ChainRuleValidateResult } from "../x509_chain_validator";
 import { ChainRule, ChainRuleType } from "./rule_registry";
-import {X509CertificateTree}  from "../x509_certificate_tree";
-import { OCSPWorker } from "../ocsp";
-
+import * as x509 from "../";
+import { X509Certificate } from "../x509_cert";
 
 /**
  * Revoked Rule
- * This rule checks the if the certificate is revoked by the issuer
+ * This rule checks if the certificate is revoked by the issuer
  */
 export class RevokedRule implements ChainRule {
-
   public id = "revoked";
   public type = ChainRuleType.critical;
 
   public async validate(params: ChainRuleValidateParams): Promise<ChainRuleValidateResult> {
     const certificate = params.cert;
-    const X509Chain = new X509CertificateTree();
-    const node = params.node;
-    // check if the certificate is self-signed
-    // if it is self-signed, no further checks are made, assuming that the certificate is trusted
-    if(await certificate.isSelfSigned()){
-      const result = { code: this.id, type: this.type,  status: true, details: "The certificate is self-signed" }
-      X509Chain.appendNodeData(node, certificate.serialNumber, result);
+    const tree = params.tree;
 
-      return result;
-    }else{
-      let issuer;
-      // find certificate in a list with a subject field equal to the issuer field of the certificate being checked
-      for (const cert of params.chain) {
-        if (cert.subject == certificate.issuer) {
-          issuer = cert;
-        }
-      }
-      if (!issuer) throw new Error("Issuer not found");
+    // Check if the certificate is self-signed
+    if (await certificate.isSelfSigned()) {
+      return await this.createResult(tree, certificate, true, "The certificate is self-signed");
+    }
 
-      //get OCSP response on the certificate
-      const ocspWorker = await OCSPWorker.create(certificate, issuer);
-      const status = await ocspWorker.sendRequest();
+    // Find the OCSP response for the certificate
+    const OCSPresponse = await tree.certificateStorage.findOCSP(certificate);
+    if (!OCSPresponse.result?.basicResponse) {
+      return await this.createResult(tree, certificate, false, "OCSP response not found");
+    }
 
-      if (status !== true){
-        const result = { code: this.id, type: this.type, status: false, details: "OCSP response is malformed" };
-        X509Chain.appendNodeData(node, certificate.serialNumber, result);
+    // Find the single response for the certificate
+    const singleResponse = OCSPresponse.result.basicResponse.responses.find(
+      (response) => response.certificateID.serialNumber === certificate.serialNumber
+    );
+    if (singleResponse?.status !== true) {
+      return await this.createResult(tree, certificate, false, "The certificate is revoked");
+    }
 
-        return result;
-      }else{
+    // If the certificate is not revoked, check the OCSP provider certificate
+    const responderID = OCSPresponse.result.basicResponse.responderID;
+    if (!responderID) {
+      return await this.createResult(tree, certificate, false, "Failed to find responderID in OCSP response");
+    }
 
-        // try to find the OCSP certificate in the Tree
-        // if the certificate is found check it's revocation status
-        // TODO: if it's revocation status has not been checked, verify it with OCSP
-        // Currently, it will return failure on unverified revocation status
-        if (ocspWorker.response.basicResponse?.responderID){
+    // Try to find the responder certificate in the existing nodes
+    const responderCert = tree.certificateStorage.findCertificate(responderID);
+    if (!responderCert) {
+      return await this.createResult(tree, certificate, false, "Failed to find OCSP provider certificate");
+    }
 
-          const responderID = ocspWorker.response.basicResponse.responderID;
-          const responderCert = X509Chain.findCertificateByResponderID(responderID, node);
-          // if responderCert is found check if it has not been revoked
-          if(responderCert !== undefined){
-            const responderRulesResults = X509Chain.getRulesData(node, responderCert.serialNumber);
-            // if the certificate is not revoked return the success message
-            if(responderRulesResults.length > 0){
-              // find Rule result with the id "revoked"
-              const revokedResult = responderRulesResults.find(result => result.code === "revoked");
-              if(revokedResult){
-                if(revokedResult.status === true){
-                  const result = { code: this.id, type: this.type, status: true, details: "The certificate is not revoked" };
-                  X509Chain.appendNodeData(node, certificate.serialNumber, result);
+    const responderNode = tree.chainNodeStorage[Convert.ToHex(await responderCert.getThumbprint())];
+    // check if the responder certificate is in a node and has been checked
+    // if it is has not been validated or it is not in a node, build the tree around the responder certificate
+    // and call validate on that tree
 
-                  return result;
-                }else{
-                  const result = { code: this.id, type: this.type, status: false, details: "The OCSP provider certificate is revoked" };
-                  X509Chain.appendNodeData(node, certificate.serialNumber, result);
+    if(responderNode === undefined ||
+       (!responderNode.rulesResults.every((result) => result.type !== this.id)  &&
+        responderNode.state !== "invalid")){
 
-                  return result;
-                }
-              }
-            }
-          }
-        }
-        //TODO if the certificate is not found in the tree, get the certificate from the OCSP provider
-        const result = { code: this.id, type: this.type, status: false, details: "failed to verify OCSP Server" };
-        X509Chain.appendNodeData(node, certificate.serialNumber, result);
-
-        return result;
+      const validator = new x509.X509ChainValidator();
+      validator.rules.clear();
+      validator.rules.add(new x509.rules.RevokedRule());
+      const result = await validator.validate(responderCert, tree);
+      if (result.status === false) {
+        return await this.createResult(tree, certificate, false, "The OCSP provider certificate is not trusted");
+      } else {
+        return await this.createResult(tree, certificate, true, "The certificate is not revoked");
       }
     }
-    const result = { code: this.id, type: this.type, status: false, details: "The certificate is revoked" };
-    X509Chain.appendNodeData(node, certificate.serialNumber, result);
+
+    const rulesResults = tree.getRulesData(responderNode, responderCert.serialNumber);
+
+    if (rulesResults.length > 0) {
+      const responderStatus = rulesResults.every((result) => result.status === true);
+
+      if (responderStatus) {
+        return await this.createResult(tree, certificate, true, "The certificate is not revoked");
+      } else {
+        return await this.createResult(tree, certificate, false, "The OCSP provider certificate is not trusted");
+      }
+    }
+
+
+    return await this.createResult(tree, certificate, false, "The certificate is revoked");
+  }
+
+  private async createResult(tree: X509CertificateTree, certificate: X509Certificate, status: boolean, details: string): Promise<ChainRuleValidateResult> {
+    const result = { code: this.id, type: this.type, status, details };
+    const node = tree.chainNodeStorage[Convert.ToHex(await certificate.getThumbprint())];
+    await tree.appendNodeData(node.certificate,  result);
 
     return result;
   }
 }
-

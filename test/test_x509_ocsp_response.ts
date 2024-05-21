@@ -178,39 +178,13 @@ context("OCSP", async () => {
     };
 
     const ocspRequestParams: OCSPResponseCreateParams = {
-      /**
-       * Response signature algorithm
-       */
       signatureAlgorithm: "SHA-1",
-      /**
-       * Response signing key
-       */
       signingKey: keysCA.privateKey,
-      /**
-       * The OCSP request for which the response is being generated
-       */
       singleResponses: [singleResponse],
-      /**
-       * The certificate that will be used to sign the response
-       */
       responder: CACert.subjectName,
-      /**
-       * List of certificates that can be used to verify the signature of the response
-       */
       certificates: [CACert],
-      /**
-       * The date and time for which the status of the certificate is issued
-       * The default is the current time
-       */
       date: new Date(Date.UTC(2020, 0, 1, 8, 0, 0)),
-      /**
-       * Certificate status
-       * The default is successful
-       */
       status: 0,
-      /**
-       * List of response extensions
-       */
       extensions: [new NonceExtension(new TextEncoder().encode("Test Nonce"))],
     };
 

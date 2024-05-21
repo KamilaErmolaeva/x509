@@ -7,6 +7,7 @@ import { cryptoProvider } from "./provider";
 import { AuthorityKeyIdentifierExtension, SubjectKeyIdentifierExtension } from "./extensions";
 import { ICertificateStorageHandler, IResult } from "./certificate_storage_handler";
 import { X509Crl } from "./x509_crl";
+import { OCSPResponse } from "./ocsp";
 
 export class DefaultCertificateStorageHandler implements ICertificateStorageHandler {
 
@@ -14,6 +15,7 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
   public certificates = new X509Certificates();
   public crls: X509Crl[] = [];
 
+  public ocsp: OCSPResponse[] = [];
   public async findIssuers(cert: X509Certificate, crypto = cryptoProvider.get()): Promise<X509Certificates> {
     const issuerCerts: X509Certificates = new X509Certificates();
     if (this.parent) {
@@ -70,5 +72,72 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
       target: this,
       result: false,
     };
+  }
+
+  /**
+   *  Find the latest OCSP response for the certificate
+   **/
+  public async findOCSP(cert: X509Certificate): Promise<IResult<OCSPResponse | null>> {
+    const serialNumber = cert.serialNumber;
+    let validResponses: OCSPResponse[];
+    if (this.ocsp.length === 0) {
+      return {
+        target: this,
+        result: null,
+      };
+    }else{
+      validResponses = this.ocsp.filter((ocsp) => {
+        const singleResponses = ocsp.basicResponse?.responses;
+        if (!singleResponses) {
+          return false;
+        }else{
+          return singleResponses.some((singleResponse) => {
+            return singleResponse.certificateID.serialNumber === serialNumber;
+          });
+        }
+       });
+      // if there are no valid responses return null
+      // else return the latest response
+      if (validResponses.length === 0){
+        return {
+          target: this,
+          result: null,
+        };
+      }else{
+          // sort the responses by the producedAt field
+          validResponses.sort((a, b) => {
+            if(!a.basicResponse || !b.basicResponse){
+              return 0;
+            }
+
+            return a.basicResponse?.producedAt.getTime() - b.basicResponse?.producedAt.getTime();
+          });
+        }
+    }
+
+   return {
+      target: this,
+      result: validResponses[0],
+    };
+  }
+
+  findCertificate(responderID: string | ArrayBuffer): X509Certificate | undefined {
+    if (typeof responderID === "string") {
+      for (const cert of this.certificates) {
+        if (cert.subject === responderID) {
+          return cert;
+        }
+      }
+    } else {
+      const keyId = Buffer.from(responderID).toString("hex");
+      for (const cert of this.certificates) {
+        const ski = cert.getExtension<SubjectKeyIdentifierExtension>(asn1X509.id_ce_subjectKeyIdentifier);
+        if (ski && ski.keyId === keyId) {
+          return cert;
+        }
+      }
+    }
+
+    return undefined;
   }
 }
