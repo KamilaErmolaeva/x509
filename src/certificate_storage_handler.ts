@@ -26,7 +26,7 @@ export interface ICertificateStorageHandler {
    */
   findIssuers(cert: X509Certificate, crypto?: Crypto): Promise<X509Certificates>;
 
-  findCertificate(responderID: string | ArrayBuffer): X509Certificate | undefined;
+  findCertificate(responderID: string | ArrayBuffer): Promise<X509Certificate[] | null>;
   /**
    * Returns true if certificate is trusted
    */

@@ -94,7 +94,7 @@ const LeafVector = {
   ]
 };
 
-context("OCSP", () => {
+context("OCSP Revoked Rule", () => {
   it("Verify certificate", async () => {
 
     // get ocsp response for the leaf certificate

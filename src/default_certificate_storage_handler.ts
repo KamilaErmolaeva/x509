@@ -8,6 +8,8 @@ import { AuthorityKeyIdentifierExtension, SubjectKeyIdentifierExtension } from "
 import { ICertificateStorageHandler, IResult } from "./certificate_storage_handler";
 import { X509Crl } from "./x509_crl";
 import { OCSPResponse } from "./ocsp";
+import { Convert } from "pvtsutils";
+
 
 export class DefaultCertificateStorageHandler implements ICertificateStorageHandler {
 
@@ -77,25 +79,37 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
   /**
    *  Find the latest OCSP response for the certificate
    **/
-  public async findOCSP(cert: X509Certificate): Promise<IResult<OCSPResponse | null>> {
+  public async findOCSP(cert: X509Certificate, crypto = cryptoProvider.get()): Promise<IResult<OCSPResponse | null>> {
     const serialNumber = cert.serialNumber;
-    let validResponses: OCSPResponse[];
+
+    const validResponses: OCSPResponse[] = [];
+
     if (this.ocsp.length === 0) {
       return {
         target: this,
         result: null,
       };
     }else{
-      validResponses = this.ocsp.filter((ocsp) => {
+      for (const ocsp of this.ocsp) {
         const singleResponses = ocsp.basicResponse?.responses;
         if (!singleResponses) {
-          return false;
+          continue;
         }else{
-          return singleResponses.some((singleResponse) => {
-            return singleResponse.certificateID.serialNumber === serialNumber;
-          });
+          for(const singleResponse of singleResponses){
+            let validity = true;
+            if (!(singleResponse.certificateID.serialNumber === serialNumber)){
+              validity = false;
+            }
+            const certIssuerNameHash = await cert.issuerName.getThumbprint(singleResponse.certificateID.hashAlgorithm, crypto);
+            if (!isEqual(singleResponse.certificateID.issuerNameHash, certIssuerNameHash)) {
+              validity = false;
+            }
+            if (validity){
+              validResponses.push(ocsp);
+            }
+          }
         }
-       });
+      }
       // if there are no valid responses return null
       // else return the latest response
       if (validResponses.length === 0){
@@ -121,23 +135,37 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
     };
   }
 
-  findCertificate(responderID: string | ArrayBuffer): X509Certificate | undefined {
+  async findCertificate(responderID: string | ArrayBuffer): Promise<X509Certificate[] | null> {
+    // generate array of certificates and fill it with the certificates from the storage
+    const certificates: X509Certificate[] = [];
+
+
     if (typeof responderID === "string") {
       for (const cert of this.certificates) {
         if (cert.subject === responderID) {
-          return cert;
+          certificates.push(cert);
         }
       }
     } else {
-      const keyId = Buffer.from(responderID).toString("hex");
+      const keyId = Convert.ToHex(responderID);
       for (const cert of this.certificates) {
         const ski = cert.getExtension<SubjectKeyIdentifierExtension>(asn1X509.id_ce_subjectKeyIdentifier);
+        if (!ski){
+          const skiAlt = Convert.ToHex(await cert.publicKey.getKeyIdentifier());
+          if (skiAlt === keyId){
+            certificates.push(cert);
+          }
+        }
         if (ski && ski.keyId === keyId) {
-          return cert;
+          certificates.push(cert);
         }
       }
     }
 
-    return undefined;
+    if(certificates.length > 0){
+      return certificates;
+    }
+
+    return null;
   }
 }

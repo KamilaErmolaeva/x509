@@ -123,7 +123,7 @@ export class X509CertificateTree implements ICertificateStorage {
    * Find the certificate in the storage
    * @param responderID responderID, if string then it is a name, if ArrayBuffer then it is a keyHash
    */
-  public findCertificate(responderID: string | ArrayBuffer): X509Certificate | undefined {
+  public async findCertificate(responderID: string | ArrayBuffer): Promise<X509Certificate[] | null> {
 
       return this.certificateStorage.findCertificate(responderID);
   }

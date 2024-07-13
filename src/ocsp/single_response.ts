@@ -6,6 +6,8 @@ import { CertificateID } from "./cert_id";
 import { Extension } from "../extension";
 import { AsnEncodedType, PemData } from "../pem_data";
 import { ExtensionFactory } from "../extensions/extension_factory";
+import { CRLReasons } from "@peculiar/asn1-x509";
+
 
 export class SingleResponse extends AsnData<ocsp.SingleResponse> implements IExtensionable {
 
@@ -21,6 +23,7 @@ export class SingleResponse extends AsnData<ocsp.SingleResponse> implements IExt
 
   public revocationTime?: Date;
 
+  public revocationReason?: string;
   public thisUpdate!: Date;
 
   public nextUpdate?: Date;
@@ -41,6 +44,7 @@ export class SingleResponse extends AsnData<ocsp.SingleResponse> implements IExt
       }
       if(asn.certStatus.revoked?.revocationReason) {
         // TODO: implement revocationReason
+        this.revocationReason = CRLReasons[asn.certStatus.revoked.revocationReason.reason];
       }
     }
     this.thisUpdate = asn.thisUpdate;

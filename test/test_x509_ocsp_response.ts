@@ -95,7 +95,7 @@ const leafPublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEus3DfGZirF5UkdRQD7aKA
 const caPrivateKey = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgE/+gM0YVMwVMLEJZRlTnFHjQdA7PGlvx4RrwbNjWvEChRANCAAT9AozzW2pwptkjuponmuLdwEdnpTKNdrzQt0UxC7/GtA4rdy6xl9w8FtuN1rbeDo3b6EkYv/jtbsU3yL+0oQ1o";
 const caPublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/QKM81tqcKbZI7qaJ5ri3cBHZ6UyjXa80LdFMQu/xrQOK3cusZfcPBbbjda23g6N2+hJGL/47W7FN8i/tKENaA==";
 
-context("OCSP", async () => {
+context("OCSP verify on synthetic certs", async () => {
 
   const CAIssuerVector = {
         serialNumber: "00",

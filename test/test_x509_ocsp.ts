@@ -7,7 +7,7 @@ import { Crypto } from "@peculiar/webcrypto";
 const crypto = new Crypto();
 x509.cryptoProvider.set(crypto);
 
-context("OCSP", async () => {
+context("OCSP verify on live certs", async () => {
 
   const pemLeaf = `-----BEGIN CERTIFICATE-----
 MIIGGDCCBZ2gAwIBAgITMwAABF8rDWWdcXI+fQAAAAAEXzAKBggqhkjOPQQDAzBd
