@@ -3,6 +3,7 @@ import * as x509 from "../src";
 import {OCSPResponseGenerator} from "../src/ocsp";
 import { NonceExtension } from "../src/extensions";
 import { Crypto } from "@peculiar/webcrypto";
+import { DefaultCertificateStorageHandler}   from "../src/default_certificate_storage_handler";
 
 
 const crypto = new Crypto();
@@ -184,12 +185,15 @@ context("OCSP Revoked Rule", () => {
     certsTree.push(root);
     certsTree.push(ocspRoot);
 
+    const certificateStorage = new DefaultCertificateStorageHandler;
+    certificateStorage.certificates = certsTree;
+    certificateStorage.ocsp = [leafCAResponse, caRootResponse];
+
     // create a validator and run the revoked rule on the tree.
     const validator = new x509.X509ChainValidator();
     validator.rules.clear();
     validator.rules.add(new x509.rules.RevokedRule());
-    validator.certificateStorage.certificates = certsTree;
-    validator.certificateStorage.ocsp = [leafCAResponse, caRootResponse];
+    validator.certificateStorage = certificateStorage;
     // parse results
     const result = await validator.validate(certsTree[0]);
     assert(result.status === true);

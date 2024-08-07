@@ -20,6 +20,7 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
   public ocsp: OCSPResponse[] = [];
   public async findIssuers(cert: X509Certificate, crypto = cryptoProvider.get()): Promise<X509Certificates> {
     const issuerCerts: X509Certificates = new X509Certificates();
+    // TODO: Rework to use the parent storage last
     if (this.parent) {
       return await this.parent.findIssuers(cert, crypto);
     }
@@ -135,7 +136,7 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
     };
   }
 
-  async findCertificate(responderID: string | ArrayBuffer): Promise<X509Certificate[] | null> {
+  async findCertificate(responderID: string | ArrayBuffer): Promise<X509Certificate[]> {
     // generate array of certificates and fill it with the certificates from the storage
     const certificates: X509Certificate[] = [];
 
@@ -162,10 +163,6 @@ export class DefaultCertificateStorageHandler implements ICertificateStorageHand
       }
     }
 
-    if(certificates.length > 0){
-      return certificates;
-    }
-
-    return null;
+    return certificates;
   }
 }

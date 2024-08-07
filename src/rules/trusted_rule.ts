@@ -1,6 +1,7 @@
 import { ChainRule, ChainRuleType } from "./rule_registry";
 import { X509CertificateTree } from "../x509_certificate_tree";
 import { ChainRuleValidateParams, ChainRuleValidateResult } from "../x509_chain_validator";
+import { DefaultCertificateStorageHandler } from "../default_certificate_storage_handler";
 
 /**
  * Trusted Rule
@@ -13,7 +14,7 @@ export class TrustedRule implements ChainRule {
 
   public async validate(params: ChainRuleValidateParams): Promise<ChainRuleValidateResult> {
     const chain = new X509CertificateTree();
-    chain.certificateStorage.certificates = params.chain;
+    (chain.certificateStorage as DefaultCertificateStorageHandler).certificates = params.chain;
     const trustedChain = await chain.certificateStorage.isTrusted(params.cert);
     if (!trustedChain.result) {
       return { code: this.id, type: this.type, status: false, details: "Parent certificates are not included in trusted list" };

@@ -47,8 +47,9 @@ export class RevokedRule implements ChainRule {
     }
 
     // Try to find the responder certificate in the existing nodes
+    // TODO: Implement OCSP certificate storage and use it here
     const responderCert = await tree.certificateStorage.findCertificate(responderID);
-    if (!responderCert) {
+    if (responderCert.length === 0) {
       return await this.createResult(tree, certificate, false, "Failed to find OCSP provider certificate");
     }
 

@@ -35,7 +35,7 @@ export interface ChainRuleValidateResult {
 
 export async function buildChains(cert: X509Certificate, certsTree: X509Certificates) {
   const validator = new X509ChainValidator();
-  validator.certificateStorage.certificates = certsTree;
+  (validator.certificateStorage as DefaultCertificateStorageHandler).certificates = certsTree;
   const result = await validator.validate(cert);
 
   if (!result.status) {
