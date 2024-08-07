@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import * as x509 from "../src";
+import { DefaultCertificateStorageHandler } from "../src/default_certificate_storage_handler";
 
 context("validation_rules", () => {
   const certsTree = new x509.X509Certificates();
@@ -263,7 +264,7 @@ ywIhAM3wLiQIf5nTUTW7lCozoBGwP3MSOx5ZeQgTK6z4qOBI
       const validator = new x509.X509ChainValidator();
       validator.rules.clear();
       validator.rules.add(t.args.rule());
-      validator.certificateStorage.certificates = t.args.certsTree;
+      (validator.certificateStorage as DefaultCertificateStorageHandler).certificates = t.args.certsTree;
       const result = await validator.validate(t.args.cert);
 
       assert.strictEqual(result.status, t.want.status);

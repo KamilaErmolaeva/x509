@@ -1,5 +1,6 @@
 import { assert } from "console";
 import * as x509 from "../src";
+import { DefaultCertificateStorageHandler } from "../src/default_certificate_storage_handler";
 
 const pemsGoogle = [
 `-----BEGIN CERTIFICATE-----
@@ -262,16 +263,17 @@ context("validation_rules_google_certs", () => {
     const chain = new x509.X509CertificateTree();
     const certsTree = new x509.X509Certificates();
     pemsGoogle.forEach((pem) => certsTree.push(new x509.X509Certificate(pem)));
-    chain.certificateStorage.certificates = certsTree;
+    (chain.certificateStorage as DefaultCertificateStorageHandler).certificates = certsTree;
 
     // create a validator and run the revoked rule on the tree.
     const validator = new x509.X509ChainValidator();
     validator.rules.clear();
     validator.rules.add(new x509.rules.RevokedRule());
-    validator.certificateStorage.certificates = certsTree;
+    (validator.certificateStorage as DefaultCertificateStorageHandler).certificates = certsTree;
 
     // parse results
     const result = await validator.validate(certsTree[0]);
     assert(result.status === true);
+
   });
 });

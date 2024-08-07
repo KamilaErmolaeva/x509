@@ -95,7 +95,7 @@ const leafPublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEus3DfGZirF5UkdRQD7aKA
 const caPrivateKey = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgE/+gM0YVMwVMLEJZRlTnFHjQdA7PGlvx4RrwbNjWvEChRANCAAT9AozzW2pwptkjuponmuLdwEdnpTKNdrzQt0UxC7/GtA4rdy6xl9w8FtuN1rbeDo3b6EkYv/jtbsU3yL+0oQ1o";
 const caPublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/QKM81tqcKbZI7qaJ5ri3cBHZ6UyjXa80LdFMQu/xrQOK3cusZfcPBbbjda23g6N2+hJGL/47W7FN8i/tKENaA==";
 
-context("OCSP", async () => {
+context("OCSP verify on synthetic certs", async () => {
 
   const CAIssuerVector = {
         serialNumber: "00",
@@ -178,39 +178,13 @@ context("OCSP", async () => {
     };
 
     const ocspRequestParams: OCSPResponseCreateParams = {
-      /**
-       * Response signature algorithm
-       */
       signatureAlgorithm: "SHA-1",
-      /**
-       * Response signing key
-       */
       signingKey: keysCA.privateKey,
-      /**
-       * The OCSP request for which the response is being generated
-       */
       singleResponses: [singleResponse],
-      /**
-       * The certificate that will be used to sign the response
-       */
       responder: CACert.subjectName,
-      /**
-       * List of certificates that can be used to verify the signature of the response
-       */
       certificates: [CACert],
-      /**
-       * The date and time for which the status of the certificate is issued
-       * The default is the current time
-       */
       date: new Date(Date.UTC(2020, 0, 1, 8, 0, 0)),
-      /**
-       * Certificate status
-       * The default is successful
-       */
       status: 0,
-      /**
-       * List of response extensions
-       */
       extensions: [new NonceExtension(new TextEncoder().encode("Test Nonce"))],
     };
 

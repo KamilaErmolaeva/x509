@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import * as x509 from "../src";
+import { DefaultCertificateStorageHandler } from "../src/default_certificate_storage_handler";
 
 context("certificate tree", async () => {
   const certsTree = new x509.X509Certificates();
@@ -102,7 +103,7 @@ CEn5YlJTjpTwKK0=
 
   it("build chain tree", async () => {
     const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
+    (chain.certificateStorage as DefaultCertificateStorageHandler).certificates = certsTree;
     const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.build(certsTree[5]);
     const array = certificateChains.build(items);
@@ -112,7 +113,7 @@ CEn5YlJTjpTwKK0=
 
   it("self-signed certificate chain", async () => {
     const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
+    (chain.certificateStorage as DefaultCertificateStorageHandler).certificates = certsTree;
     const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.build(certsTree[0]);
     const array = certificateChains.build(items);
@@ -122,7 +123,7 @@ CEn5YlJTjpTwKK0=
 
   it("build certificates chain", async () => {
     const chain = new x509.X509CertificateTree();
-    chain.certificateStorage.certificates = certsTree;
+    (chain.certificateStorage as DefaultCertificateStorageHandler).certificates = certsTree;
     const certificateChains = new x509.X509ChainBuilderFromTree();
     const items = await chain.build(certsTree[5]);
     const array = certificateChains.build(items);

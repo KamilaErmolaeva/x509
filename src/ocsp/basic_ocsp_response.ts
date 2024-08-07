@@ -17,6 +17,7 @@ import { cryptoProvider } from "../provider";
 import { PublicKey, PublicKeyType } from "../public_key";
 import { BufferSourceConverter } from "pvtsutils";
 import { IAsnSignatureFormatter, diAsnSignatureFormatter } from "../asn_signature_formatter";
+import { Name } from "../name";
 
 
 /**
@@ -76,14 +77,17 @@ export class BasicOCSPResponse extends AsnData<ocsp.BasicOCSPResponse> implement
     this.signatureAlgorithm = algProv.toWebAlgorithm(asn.signatureAlgorithm) as HashedAlgorithm;
     this.signature = BufferSourceConverter.toArrayBuffer(asn.signature);
     if (asn.tbsResponseData.responderID.byName) {
-      this.responderID = asn.tbsResponseData.responderID.byName.toString();
+      this.responderID = new Name(asn.tbsResponseData.responderID.byName).toString();
     }
     if (asn.tbsResponseData.responderID.byKey) {
       this.responderID = asn.tbsResponseData.responderID.byKey.buffer;
     }
     this.producedAt = asn.tbsResponseData.producedAt;
-    this.responses = [];
-    asn.tbsResponseData.responses.map((o) => new SingleResponse(o));
+    if (asn.tbsResponseData.responses === undefined) {
+      this.responses = [];
+    }else{
+      this.responses =  asn.tbsResponseData.responses.map((o) => new SingleResponse(o));
+    }
     this.extensions = [];
     if (asn.tbsResponseData.responseExtensions) {
       this.extensions = asn.tbsResponseData.responseExtensions.map((o) =>
